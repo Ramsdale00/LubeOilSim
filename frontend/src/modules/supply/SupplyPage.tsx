@@ -1,23 +1,63 @@
 import { useEffect, useState } from 'react'
-import { TruckIcon, Sparkles, CheckCircle2, Star, Clock, DollarSign, Package, TrendingDown } from 'lucide-react'
+import { TruckIcon, Sparkles, CheckCircle2, Star, Clock, IndianRupee, Package, TrendingDown, ShieldCheck } from 'lucide-react'
 import { clsx } from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { useSupplyStore } from '@/store/supplyStore'
-import type { Supplier, QualityGrade } from '@/types'
+import type { Brand, QualityGrade } from '@/types'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 
-// ── Dummy data ────────────────────────────────────────────────────────────────
+// ── Dummy brand data ──────────────────────────────────────────────────────────
 
-const INITIAL_SUPPLIERS: Supplier[] = [
-  { id: 's1', name: 'Nexus Petrochemicals', material: 'base_oil', price_per_liter: 1.24, lead_time_days: 5, quality_grade: 'A+', reliability_percent: 98, min_order_liters: 5000, is_preferred: true, region: 'North America' },
-  { id: 's2', name: 'Gulf Base Oils Ltd', material: 'base_oil', price_per_liter: 1.18, lead_time_days: 8, quality_grade: 'A', reliability_percent: 94, min_order_liters: 10000, is_preferred: false, region: 'Middle East' },
-  { id: 's3', name: 'EuroLube AG', material: 'base_oil', price_per_liter: 1.32, lead_time_days: 3, quality_grade: 'A+', reliability_percent: 99, min_order_liters: 2000, is_preferred: false, region: 'Europe' },
-  { id: 's4', name: 'Viscoflex Corp', material: 'viscosity_modifier', price_per_liter: 3.82, lead_time_days: 7, quality_grade: 'A+', reliability_percent: 96, min_order_liters: 1000, is_preferred: true, region: 'North America' },
-  { id: 's5', name: 'Polyadd Industries', material: 'viscosity_modifier', price_per_liter: 3.65, lead_time_days: 12, quality_grade: 'B+', reliability_percent: 88, min_order_liters: 2000, is_preferred: false, region: 'Asia Pacific' },
-  { id: 's6', name: 'Oxiprotect GmbH', material: 'antioxidant', price_per_liter: 8.40, lead_time_days: 10, quality_grade: 'A+', reliability_percent: 97, min_order_liters: 500, is_preferred: true, region: 'Europe' },
-  { id: 's7', name: 'ChemGuard Inc', material: 'antioxidant', price_per_liter: 7.95, lead_time_days: 6, quality_grade: 'A', reliability_percent: 92, min_order_liters: 800, is_preferred: false, region: 'North America' },
-  { id: 's8', name: 'CleanAdd Solutions', material: 'detergent', price_per_liter: 5.20, lead_time_days: 4, quality_grade: 'A', reliability_percent: 95, min_order_liters: 1500, is_preferred: true, region: 'Europe' },
+const INITIAL_BRANDS: Brand[] = [
+  {
+    id: 'b1',
+    name: 'Indian Oil Corporation',
+    region: 'North India',
+    is_preferred: true,
+    reliability_percent: 98,
+    products: [
+      { id: 'p1', name: 'Servo Base Oil SN 150', material: 'base_oil', price_per_liter: 95, lead_time_days: 4, quality_grade: 'A+', min_order_liters: 5000 },
+      { id: 'p2', name: 'Servo Base Oil SN 500', material: 'base_oil', price_per_liter: 112, lead_time_days: 4, quality_grade: 'A+', min_order_liters: 3000 },
+      { id: 'p3', name: 'Servo Gear Additive GA-3', material: 'detergent', price_per_liter: 178, lead_time_days: 6, quality_grade: 'A', min_order_liters: 1000 },
+    ],
+  },
+  {
+    id: 'b2',
+    name: 'HP Lubricants',
+    region: 'West India',
+    is_preferred: true,
+    reliability_percent: 96,
+    products: [
+      { id: 'p4', name: 'HP Laal Ghoda Base Oil', material: 'base_oil', price_per_liter: 88, lead_time_days: 5, quality_grade: 'A', min_order_liters: 10000 },
+      { id: 'p5', name: 'Hyspin Viscosity Mod. VM-200', material: 'viscosity_modifier', price_per_liter: 298, lead_time_days: 7, quality_grade: 'A+', min_order_liters: 1000 },
+      { id: 'p6', name: 'HP Pour Point Depressant PPD-7', material: 'pour_point_depressant', price_per_liter: 412, lead_time_days: 9, quality_grade: 'B+', min_order_liters: 500 },
+    ],
+  },
+  {
+    id: 'b3',
+    name: 'Castrol India',
+    region: 'South India',
+    is_preferred: false,
+    reliability_percent: 92,
+    products: [
+      { id: 'p7', name: 'Castrol Base Blend CB-4', material: 'base_oil', price_per_liter: 118, lead_time_days: 6, quality_grade: 'A', min_order_liters: 2000 },
+      { id: 'p8', name: 'Castrol Viscosity Mod. VMX-300', material: 'viscosity_modifier', price_per_liter: 325, lead_time_days: 8, quality_grade: 'A+', min_order_liters: 800 },
+      { id: 'p9', name: 'Castrol Antioxidant AO-7', material: 'antioxidant', price_per_liter: 645, lead_time_days: 10, quality_grade: 'A+', min_order_liters: 400 },
+    ],
+  },
+  {
+    id: 'b4',
+    name: 'Shell India',
+    region: 'East India',
+    is_preferred: false,
+    reliability_percent: 94,
+    products: [
+      { id: 'p10', name: 'Shell Base Oil 150N', material: 'base_oil', price_per_liter: 105, lead_time_days: 5, quality_grade: 'A+', min_order_liters: 2000 },
+      { id: 'p11', name: 'Shell Spirax Gear Additive', material: 'detergent', price_per_liter: 420, lead_time_days: 7, quality_grade: 'A', min_order_liters: 600 },
+      { id: 'p12', name: 'Shell Antioxidant AX-5', material: 'antioxidant', price_per_liter: 710, lead_time_days: 11, quality_grade: 'A+', min_order_liters: 300 },
+    ],
+  },
 ]
 
 const COST_BREAKDOWN = [
@@ -29,22 +69,22 @@ const COST_BREAKDOWN = [
 ]
 
 const PRICE_TREND = [
-  { month: 'Oct', base: 1.19, vm: 3.75 },
-  { month: 'Nov', base: 1.22, vm: 3.78 },
-  { month: 'Dec', base: 1.25, vm: 3.82 },
-  { month: 'Jan', base: 1.21, vm: 3.70 },
-  { month: 'Feb', base: 1.18, vm: 3.65 },
-  { month: 'Mar', base: 1.24, vm: 3.82 },
+  { month: 'Oct', base: 92, vm: 290 },
+  { month: 'Nov', base: 96, vm: 295 },
+  { month: 'Dec', base: 101, vm: 305 },
+  { month: 'Jan', base: 98, vm: 288 },
+  { month: 'Feb', base: 94, vm: 292 },
+  { month: 'Mar', base: 95, vm: 298 },
 ]
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const GRADE_COLORS: Record<QualityGrade, string> = {
   'A+': 'text-green-700 bg-green-100/70',
-  'A': 'text-green-600 bg-green-100/50',
+  'A':  'text-green-600 bg-green-100/50',
   'B+': 'text-blue-600 bg-blue-100/50',
-  'B': 'text-blue-500 bg-blue-100/40',
-  'C': 'text-slate-500 bg-slate-100/50',
+  'B':  'text-blue-500 bg-blue-100/40',
+  'C':  'text-slate-500 bg-slate-100/50',
 }
 
 const MATERIAL_LABELS: Record<string, string> = {
@@ -53,60 +93,120 @@ const MATERIAL_LABELS: Record<string, string> = {
   antioxidant: 'Antioxidant',
   detergent: 'Detergent',
   pour_point_depressant: 'PPD',
-  finished_product: 'Finished Product',
+  finished_product: 'Finished',
 }
 
-// ── Supplier Card ─────────────────────────────────────────────────────────────
+// ── Brand Card ────────────────────────────────────────────────────────────────
 
-function SupplierCard({ supplier, selected, onToggle }: { supplier: Supplier; selected: boolean; onToggle: () => void }) {
+function BrandCard({
+  brand,
+  selectedProducts,
+  materialFilter,
+  onToggleProduct,
+}: {
+  brand: Brand
+  selectedProducts: string[]
+  materialFilter: string
+  onToggleProduct: (id: string) => void
+}) {
+  const visibleProducts = materialFilter === 'all'
+    ? brand.products
+    : brand.products.filter(p => p.material === materialFilter)
+
+  if (visibleProducts.length === 0) return null
+
+  const anySelected = brand.products.some(p => selectedProducts.includes(p.id))
+
   return (
     <GlassCard
-      hoverable
       animated
-      onClick={onToggle}
-      className={clsx('p-3 cursor-pointer', selected && 'border-blue-300/60 bg-white/35')}
-      glow={supplier.is_preferred ? 'blue' : 'none'}
+      className={clsx('p-4', anySelected && 'border-blue-300/60 bg-white/35')}
+      glow={brand.is_preferred ? 'blue' : 'none'}
     >
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1 min-w-0 mr-2">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="text-xs font-bold text-slate-700 truncate">{supplier.name}</p>
-            {supplier.is_preferred && <Star className="w-3 h-3 text-amber-400 fill-amber-400 flex-shrink-0" />}
+      {/* Brand header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center flex-shrink-0">
+            <TruckIcon className="w-4 h-4 text-white" />
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">{supplier.region}</p>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-bold text-slate-800">{brand.name}</p>
+              {brand.is_preferred && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+            </div>
+            <p className="text-xs text-slate-400">{brand.region}</p>
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className={clsx('text-xs px-1.5 py-0.5 rounded-full font-bold', GRADE_COLORS[supplier.quality_grade])}>
-            {supplier.quality_grade}
+        <div className="flex items-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+          <span className={clsx('text-xs font-semibold', brand.reliability_percent >= 95 ? 'text-green-600' : 'text-amber-600')}>
+            {brand.reliability_percent}% reliable
           </span>
-          <div className={clsx('w-4 h-4 rounded border-2 flex items-center justify-center transition-all', selected ? 'bg-blue-500 border-blue-500' : 'border-slate-300')}>
-            {selected && <CheckCircle2 className="w-3 h-3 text-white" />}
-          </div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-1 text-xs">
-        <div className="flex items-center gap-1">
-          <DollarSign className="w-3 h-3 text-green-500" />
-          <span className="text-slate-600 font-semibold">${supplier.price_per_liter.toFixed(2)}/L</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3 text-blue-400" />
-          <span className="text-slate-500">{supplier.lead_time_days}d lead</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Package className="w-3 h-3 text-purple-400" />
-          <span className="text-slate-500">{(supplier.min_order_liters / 1000).toFixed(0)}k L min</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-slate-500">Rel: <b className={supplier.reliability_percent >= 95 ? 'text-green-600' : 'text-amber-600'}>{supplier.reliability_percent}%</b></span>
-        </div>
-      </div>
+
       {/* Reliability bar */}
-      <div className="mt-2 w-full h-1 rounded-full bg-white/30">
+      <div className="w-full h-1 rounded-full bg-white/30 mb-3">
         <div
           className="h-full rounded-full transition-all"
-          style={{ width: `${supplier.reliability_percent}%`, background: supplier.reliability_percent >= 95 ? '#22C55E' : '#F59E0B' }}
+          style={{
+            width: `${brand.reliability_percent}%`,
+            background: brand.reliability_percent >= 95 ? '#22C55E' : '#F59E0B',
+          }}
         />
+      </div>
+
+      {/* Product rows */}
+      <div className="space-y-2">
+        {visibleProducts.map(product => {
+          const isSelected = selectedProducts.includes(product.id)
+          return (
+            <div
+              key={product.id}
+              onClick={() => onToggleProduct(product.id)}
+              className={clsx(
+                'flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer transition-all',
+                isSelected
+                  ? 'bg-blue-50/70 border border-blue-200/60'
+                  : 'bg-white/20 border border-white/20 hover:bg-white/35',
+              )}
+            >
+              {/* Checkbox */}
+              <div className={clsx('w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all', isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-300')}>
+                {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
+              </div>
+
+              {/* Product name + type */}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-slate-700 truncate">{product.name}</p>
+                <p className="text-xs text-slate-400">{MATERIAL_LABELS[product.material]}</p>
+              </div>
+
+              {/* Grade */}
+              <span className={clsx('text-xs px-1.5 py-0.5 rounded-full font-bold flex-shrink-0', GRADE_COLORS[product.quality_grade])}>
+                {product.quality_grade}
+              </span>
+
+              {/* Price */}
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <IndianRupee className="w-3 h-3 text-green-500" />
+                <span className="text-xs font-bold text-slate-700">{product.price_per_liter}/L</span>
+              </div>
+
+              {/* Lead time */}
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <Clock className="w-3 h-3 text-blue-400" />
+                <span className="text-xs text-slate-500">{product.lead_time_days}d</span>
+              </div>
+
+              {/* Min order */}
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <Package className="w-3 h-3 text-purple-400" />
+                <span className="text-xs text-slate-500">{(product.min_order_liters / 1000).toFixed(0)}kL</span>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </GlassCard>
   )
@@ -115,11 +215,15 @@ function SupplierCard({ supplier, selected, onToggle }: { supplier: Supplier; se
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function SupplyPage() {
-  const { suppliers, selectedSuppliers, optimizationResult, isOptimizing, setSuppliers, toggleSupplierSelection, setOptimizationResult, setIsOptimizing } = useSupplyStore()
+  const {
+    brands, selectedProducts, optimizationResult, isOptimizing,
+    setBrands, toggleProductSelection, setOptimizationResult, setIsOptimizing,
+  } = useSupplyStore()
+
   const [materialFilter, setMaterialFilter] = useState<string>('all')
 
   useEffect(() => {
-    if (suppliers.length === 0) setSuppliers(INITIAL_SUPPLIERS)
+    if (brands.length === 0) setBrands(INITIAL_BRANDS)
   }, [])
 
   const handleOptimize = () => {
@@ -127,31 +231,35 @@ export function SupplyPage() {
     setTimeout(() => {
       setOptimizationResult({
         recommended_mix: [
-          { supplier_id: 's2', supplier_name: 'Gulf Base Oils Ltd', material: 'base_oil', volume_liters: 30000, cost: 35400, percentage: 60 },
-          { supplier_id: 's4', supplier_name: 'Viscoflex Corp', material: 'viscosity_modifier', volume_liters: 6000, cost: 22920, percentage: 20 },
-          { supplier_id: 's7', supplier_name: 'ChemGuard Inc', material: 'antioxidant', volume_liters: 2000, cost: 15900, percentage: 10 },
-          { supplier_id: 's8', supplier_name: 'CleanAdd Solutions', material: 'detergent', volume_liters: 2000, cost: 10400, percentage: 10 },
+          { supplier_id: 'p4', supplier_name: 'HP Laal Ghoda Base Oil', material: 'base_oil', volume_liters: 30000, cost: 2640000, percentage: 60 },
+          { supplier_id: 'p5', supplier_name: 'Hyspin Viscosity Mod. VM-200', material: 'viscosity_modifier', volume_liters: 6000, cost: 1788000, percentage: 20 },
+          { supplier_id: 'p9', supplier_name: 'Castrol Antioxidant AO-7', material: 'antioxidant', volume_liters: 2000, cost: 1290000, percentage: 10 },
+          { supplier_id: 'p11', supplier_name: 'Shell Spirax Gear Additive', material: 'detergent', volume_liters: 2000, cost: 840000, percentage: 10 },
         ],
-        total_cost_current: 108540,
-        total_cost_optimized: 84620,
-        savings_percent: 22.1,
+        total_cost_current: 9008820,
+        total_cost_optimized: 6558000,
+        savings_percent: 27.2,
         quality_impact: 'minimal',
-        lead_time_days: 8,
+        lead_time_days: 9,
       })
       setIsOptimizing(false)
     }, 1800)
   }
 
-  const materials = Array.from(new Set(suppliers.map(s => s.material)))
-  const filtered = materialFilter === 'all' ? suppliers : suppliers.filter(s => s.material === materialFilter)
+  // Collect all unique material types across all brands
+  const allMaterials = Array.from(
+    new Set(INITIAL_BRANDS.flatMap(b => b.products.map(p => p.material)))
+  )
+
+  const totalProducts = brands.flatMap(b => b.products).length
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Supply & Cost Optimizer</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{suppliers.length} suppliers · {selectedSuppliers.length} selected</p>
+          <h1 className="text-2xl font-bold text-slate-800">Material Procurement Hub</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{brands.length} brands · {totalProducts} products · {selectedProducts.length} selected</p>
         </div>
         <button
           onClick={handleOptimize}
@@ -159,29 +267,39 @@ export function SupplyPage() {
           className="btn-primary flex items-center gap-2"
         >
           <Sparkles className="w-4 h-4" />
-          {isOptimizing ? 'Optimizing...' : 'AI Optimize Supply Mix'}
+          {isOptimizing ? 'Optimizing...' : 'AI Optimize Procurement'}
         </button>
       </div>
 
       {/* Material filter */}
       <div className="flex gap-1.5 flex-wrap">
-        <button onClick={() => setMaterialFilter('all')} className={clsx('px-3 py-1 rounded-full text-xs font-medium transition-all', materialFilter === 'all' ? 'bg-slate-700 text-white' : 'glass-card text-slate-600 hover:bg-white/40')}>All</button>
-        {materials.map(m => (
-          <button key={m} onClick={() => setMaterialFilter(m)} className={clsx('px-3 py-1 rounded-full text-xs font-medium transition-all', materialFilter === m ? 'bg-blue-500 text-white' : 'glass-card text-slate-600 hover:bg-white/40')}>
+        <button
+          onClick={() => setMaterialFilter('all')}
+          className={clsx('px-3 py-1 rounded-full text-xs font-medium transition-all', materialFilter === 'all' ? 'bg-slate-700 text-white' : 'glass-card text-slate-600 hover:bg-white/40')}
+        >
+          All
+        </button>
+        {allMaterials.map(m => (
+          <button
+            key={m}
+            onClick={() => setMaterialFilter(m)}
+            className={clsx('px-3 py-1 rounded-full text-xs font-medium transition-all', materialFilter === m ? 'bg-blue-500 text-white' : 'glass-card text-slate-600 hover:bg-white/40')}
+          >
             {MATERIAL_LABELS[m] ?? m}
           </button>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Supplier Grid */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {filtered.map(s => (
-            <SupplierCard
-              key={s.id}
-              supplier={s}
-              selected={selectedSuppliers.includes(s.id)}
-              onToggle={() => toggleSupplierSelection(s.id)}
+        {/* Brand cards */}
+        <div className="lg:col-span-2 space-y-3">
+          {brands.map(brand => (
+            <BrandCard
+              key={brand.id}
+              brand={brand}
+              selectedProducts={selectedProducts}
+              materialFilter={materialFilter}
+              onToggleProduct={toggleProductSelection}
             />
           ))}
         </div>
@@ -216,14 +334,15 @@ export function SupplyPage() {
 
           {/* Price trend chart */}
           <GlassCard className="p-4">
-            <p className="text-sm font-semibold text-slate-700 mb-3">Price Trends ($/L)</p>
+            <p className="text-sm font-semibold text-slate-700 mb-3">Price Trends (₹/L)</p>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={PRICE_TREND} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} domain={[1.1, 4.0]} />
+                <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} domain={[80, 320]} />
                 <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.9)', border: 'none', borderRadius: 10, fontSize: 11 }} />
                 <Bar dataKey="base" name="Base Oil" fill="#3B82F6" radius={[4, 4, 0, 0]} fillOpacity={0.8} />
+                <Bar dataKey="vm" name="Visc. Mod." fill="#8B5CF6" radius={[4, 4, 0, 0]} fillOpacity={0.8} />
               </BarChart>
             </ResponsiveContainer>
           </GlassCard>
@@ -235,17 +354,17 @@ export function SupplyPage() {
                 <GlassCard className="p-4" glow="green">
                   <div className="flex items-center gap-2 mb-3">
                     <TrendingDown className="w-4 h-4 text-green-600" />
-                    <p className="text-sm font-semibold text-green-700">Optimized Supply Mix</p>
+                    <p className="text-sm font-semibold text-green-700">Optimized Procurement Mix</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     <div className="glass-card p-2.5 text-center">
                       <p className="text-xs text-slate-500">Current Cost</p>
-                      <p className="text-base font-bold text-slate-700">${(optimizationResult.total_cost_current / 1000).toFixed(1)}k</p>
+                      <p className="text-base font-bold text-slate-700">₹{(optimizationResult.total_cost_current / 100000).toFixed(1)}L</p>
                     </div>
                     <div className="glass-card p-2.5 text-center">
                       <p className="text-xs text-slate-500">Optimized Cost</p>
-                      <p className="text-base font-bold text-green-600">${(optimizationResult.total_cost_optimized / 1000).toFixed(1)}k</p>
+                      <p className="text-base font-bold text-green-600">₹{(optimizationResult.total_cost_optimized / 100000).toFixed(1)}L</p>
                     </div>
                   </div>
 
@@ -259,7 +378,7 @@ export function SupplyPage() {
                       <div key={item.supplier_id} className="flex items-center justify-between text-xs">
                         <span className="text-slate-600 truncate flex-1">{item.supplier_name}</span>
                         <span className="text-slate-500 ml-2">{(item.volume_liters / 1000).toFixed(0)}k L</span>
-                        <span className="text-green-600 font-semibold ml-2">${(item.cost / 1000).toFixed(1)}k</span>
+                        <span className="text-green-600 font-semibold ml-2">₹{(item.cost / 100000).toFixed(1)}L</span>
                       </div>
                     ))}
                   </div>

@@ -71,7 +71,7 @@ export interface QualityPrediction {
   timestamp: string
 }
 
-// Supplier types
+// Supplier / Brand types
 export type QualityGrade = 'A+' | 'A' | 'B+' | 'B' | 'C'
 
 export interface Supplier {
@@ -85,6 +85,25 @@ export interface Supplier {
   min_order_liters: number
   is_preferred: boolean
   region: string
+}
+
+export interface BrandProduct {
+  id: string
+  name: string
+  material: MaterialType
+  price_per_liter: number  // in INR
+  lead_time_days: number
+  quality_grade: QualityGrade
+  min_order_liters: number
+}
+
+export interface Brand {
+  id: string
+  name: string
+  region: string
+  is_preferred: boolean
+  reliability_percent: number
+  products: BrandProduct[]
 }
 
 export interface OptimizationResult {
