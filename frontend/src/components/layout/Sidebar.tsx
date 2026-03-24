@@ -21,7 +21,7 @@ const navItems = [
   { path: '/tanks', icon: FlaskConical, label: 'Tank Digital Twin', color: 'text-green-500' },
   { path: '/recipe', icon: Beaker, label: 'Recipe Lab', color: 'text-purple-500' },
   { path: '/quality', icon: CheckCircle, label: 'Quality AI Engine', color: 'text-amber-500' },
-  { path: '/supply', icon: TruckIcon, label: 'Supply Optimizer', color: 'text-orange-500' },
+  { path: '/supply', icon: TruckIcon, label: 'Procurement Hub', color: 'text-orange-500' },
   { path: '/ai', icon: Bot, label: 'AI Control Panel', color: 'text-pink-500' },
 ]
 
