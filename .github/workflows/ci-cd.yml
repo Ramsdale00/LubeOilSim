@@ -145,7 +145,7 @@ jobs:
               -e PYTHONUNBUFFERED=1 \
               --restart unless-stopped \
               $BACKEND_IMAGE \
-              uvicorn app.main:app --host 0.0.0.0 --port 7846
+              sh -c "sleep 10 && uvicorn app.main:app --host 0.0.0.0 --port 7846"
 
             echo "Restart Celery Worker"
             docker rm -f $CELERY_CONTAINER 2>/dev/null || true
@@ -159,7 +159,7 @@ jobs:
               -e PYTHONUNBUFFERED=1 \
               --restart unless-stopped \
               $BACKEND_IMAGE \
-              celery -A app.celery_app worker --loglevel=info --concurrency=4
+              sh -c "sleep 15 && celery -A app.celery_app worker --loglevel=info --concurrency=4"
 
             echo "Restart Frontend container"
             docker rm -f $FRONTEND_CONTAINER 2>/dev/null || true
@@ -171,16 +171,22 @@ jobs:
               $FRONTEND_IMAGE
 
             echo "Wait for services to start"
-            sleep 20
+            sleep 30
 
-            echo "Verify deployment (retry up to 6 times, 10s apart)"
-            for i in 1 2 3 4 5 6; do
-              sleep 10
-              curl -sf http://localhost:7846/docs > /dev/null && break
-              echo "Backend not ready yet (attempt $i/6)..."
-              if [ "$i" = "6" ]; then
-                echo "Backend failed to start after 80s"
+            echo "Verify deployment (retry up to 8 times, 15s apart)"
+            for i in 1 2 3 4 5 6 7 8; do
+              sleep 15
+              if curl -sf http://localhost:7846/docs > /dev/null 2>&1; then
+                echo "Backend is ready!"
+                break
+              fi
+              echo "Backend not ready yet (attempt $i/8)..."
+              if [ "$i" = "8" ]; then
+                echo "Backend failed to start after 150s"
+                echo "Backend logs:"
                 docker logs --tail 50 $BACKEND_CONTAINER
+                echo "Database logs:"
+                docker logs --tail 20 $DB_CONTAINER
                 exit 1
               fi
             done
