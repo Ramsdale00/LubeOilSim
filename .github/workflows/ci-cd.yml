@@ -148,23 +148,23 @@ jobs:
               --name $BACKEND_CONTAINER \
               --network $NETWORK \
               -p 7846:7846 \
-              -e DATABASE_URL="postgresql+asyncpg://sim:simpass@lubeoilsim_postgres:5432/luboilsim" \
-              -e REDIS_URL="redis://lubeoilsim_redis:6379/0" \
-              -e CELERY_BROKER_URL="redis://lubeoilsim_redis:6379/1" \
+              -e LUBOIL_DATABASE_URL="postgresql+asyncpg://sim:simpass@lubeoilsim_postgres:5432/luboilsim" \
+              -e LUBOIL_REDIS_URL="redis://lubeoilsim_redis:6379/0" \
+              -e LUBOIL_CELERY_BROKER_URL="redis://lubeoilsim_redis:6379/1" \
               -e PYTHONDONTWRITEBYTECODE=1 \
               -e PYTHONUNBUFFERED=1 \
               --restart unless-stopped \
               $BACKEND_IMAGE \
-              sh -c "sleep 10 && uvicorn app.main:app --host 0.0.0.0 --port 7846"
+              sh -c "echo 'Starting backend with LUBOIL_DATABASE_URL:' && echo \$LUBOIL_DATABASE_URL && sleep 10 && uvicorn app.main:app --host 0.0.0.0 --port 7846"
 
             echo "Restart Celery Worker"
             docker rm -f $CELERY_CONTAINER 2>/dev/null || true
             docker run -d \
               --name $CELERY_CONTAINER \
               --network $NETWORK \
-              -e DATABASE_URL="postgresql+asyncpg://sim:simpass@lubeoilsim_postgres:5432/luboilsim" \
-              -e REDIS_URL="redis://lubeoilsim_redis:6379/0" \
-              -e CELERY_BROKER_URL="redis://lubeoilsim_redis:6379/1" \
+              -e LUBOIL_DATABASE_URL="postgresql+asyncpg://sim:simpass@lubeoilsim_postgres:5432/luboilsim" \
+              -e LUBOIL_REDIS_URL="redis://lubeoilsim_redis:6379/0" \
+              -e LUBOIL_CELERY_BROKER_URL="redis://lubeoilsim_redis:6379/1" \
               -e PYTHONDONTWRITEBYTECODE=1 \
               -e PYTHONUNBUFFERED=1 \
               --restart unless-stopped \
