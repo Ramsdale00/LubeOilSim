@@ -147,6 +147,19 @@ export function AIPage() {
     { metric: 'Quality', value: 100 - s.results.off_spec_risk },
   ] : []
 
+  const getCombinedRadarData = () => {
+    const metrics = ['Viscosity', 'Flash Pt', 'TBN', 'Cost Eff.', 'Quality']
+    return metrics.map(metric => {
+      const dataPoint: any = { metric }
+      INITIAL_SCENARIOS.forEach((scenario, index) => {
+        const scenarioData = radarForScenario(scenario)
+        const metricData = scenarioData.find(d => d.metric === metric)
+        dataPoint[`scenario${index}`] = metricData ? metricData.value : 0
+      })
+      return dataPoint
+    })
+  }
+
   const SCENARIO_COLORS = ['#3B82F6', '#10B981', '#8B5CF6']
 
   return (
@@ -216,7 +229,7 @@ export function AIPage() {
                         <p className="text-xs text-slate-700 leading-relaxed">{entry.response}</p>
                         {entry.actions_taken.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1">
-                            {entry.actions_taken.map((action) => (
+                            {entry.actions_taken.map((action: string) => (
                               <span key={action} className="text-xs text-slate-400 bg-white/30 px-2 py-0.5 rounded-full">
                                 {action}
                               </span>
@@ -307,15 +320,14 @@ export function AIPage() {
 
             {/* Radar overlay */}
             <ResponsiveContainer width="100%" height={200}>
-              <RadarChart data={radarForScenario(INITIAL_SCENARIOS[0])}>
+              <RadarChart data={getCombinedRadarData()}>
                 <PolarGrid stroke="rgba(148,163,184,0.3)" />
                 <PolarAngleAxis dataKey="metric" tick={{ fontSize: 9, fill: '#94A3B8' }} />
                 {INITIAL_SCENARIOS.map((s, i) => (
                   <Radar
                     key={s.id}
                     name={s.name}
-                    data={radarForScenario(s)}
-                    dataKey="value"
+                    dataKey={`scenario${i}`}
                     stroke={SCENARIO_COLORS[i]}
                     fill={SCENARIO_COLORS[i]}
                     fillOpacity={0.1}

@@ -1,0 +1,160 @@
+name: Deploy LubeOilSim (Lube Oil Simulation Platform)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ---------------- BUILD + DEPLOY ----------------
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write   # ⭐ required for GHCR
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # Login to GHCR using PAT
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+      # Build & Push Backend Docker image
+      - name: Build and Push Backend Image
+        run: |
+          USER=$(echo "${{ secrets.GHCR_USERNAME }}" | tr '[:upper:]' '[:lower:]')
+          BACKEND_IMAGE=ghcr.io/$USER/lubeoilsim-backend:latest
+          docker build -t $BACKEND_IMAGE ./backend
+          docker push $BACKEND_IMAGE
+
+      # Build & Push Frontend Docker image
+      - name: Build and Push Frontend Image
+        run: |
+          USER=$(echo "${{ secrets.GHCR_USERNAME }}" | tr '[:upper:]' '[:lower:]')
+          FRONTEND_IMAGE=ghcr.io/$USER/lubeoilsim-frontend:latest
+          docker build -t $FRONTEND_IMAGE ./frontend
+          docker push $FRONTEND_IMAGE
+
+      # Deploy to Server via SSH
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            USER=$(echo "${{ secrets.GHCR_USERNAME }}" | tr '[:upper:]' '[:lower:]')
+            BACKEND_IMAGE=ghcr.io/$USER/lubeoilsim-backend:latest
+            FRONTEND_IMAGE=ghcr.io/$USER/lubeoilsim-frontend:latest
+            
+            BACKEND_CONTAINER=lubeoilsim_backend
+            FRONTEND_CONTAINER=lubeoilsim_frontend
+            DB_CONTAINER=lubeoilsim_postgres
+            REDIS_CONTAINER=lubeoilsim_redis
+            CELERY_CONTAINER=lubeoilsim_celery
+            NETWORK=lubeoilsim_network
+
+            echo "Login to GHCR"
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+            echo "Create network & volumes"
+            docker network create $NETWORK || true
+            docker volume create lubeoilsim_pgdata || true
+
+            echo "Pull latest images"
+            docker pull $BACKEND_IMAGE
+            docker pull $FRONTEND_IMAGE
+
+            echo "Ensure PostgreSQL exists"
+            if ! docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+              docker run -d \
+                --name $DB_CONTAINER \
+                --network $NETWORK \
+                -e POSTGRES_USER=sim \
+                -e POSTGRES_PASSWORD=simpass \
+                -e POSTGRES_DB=luboilsim \
+                -v lubeoilsim_pgdata:/var/lib/postgresql/data \
+                -p 7847:5432 \
+                --restart unless-stopped \
+                postgres:15-alpine
+            fi
+
+            echo "Ensure Redis exists"
+            if ! docker ps -a --format '{{.Names}}' | grep -q "^${REDIS_CONTAINER}$"; then
+              docker run -d \
+                --name $REDIS_CONTAINER \
+                --network $NETWORK \
+                -p 7848:6379 \
+                --restart unless-stopped \
+                redis:7-alpine
+            fi
+
+            echo "Wait for services ready"
+            until docker exec $DB_CONTAINER pg_isready -U sim > /dev/null 2>&1; do
+              sleep 2
+            done
+            until docker exec $REDIS_CONTAINER redis-cli ping > /dev/null 2>&1; do
+              sleep 2
+            done
+
+            echo "Restart Backend container"
+            docker rm -f $BACKEND_CONTAINER 2>/dev/null || true
+            docker run -d \
+              --name $BACKEND_CONTAINER \
+              --network $NETWORK \
+              -p 7846:7846 \
+              -e DATABASE_URL="postgresql+asyncpg://sim:simpass@$DB_CONTAINER:5432/luboilsim" \
+              -e REDIS_URL="redis://$REDIS_CONTAINER:6379/0" \
+              -e CELERY_BROKER_URL="redis://$REDIS_CONTAINER:6379/1" \
+              -e PYTHONDONTWRITEBYTECODE=1 \
+              -e PYTHONUNBUFFERED=1 \
+              --restart unless-stopped \
+              $BACKEND_IMAGE \
+              uvicorn app.main:app --host 0.0.0.0 --port 7846
+
+            echo "Restart Celery Worker"
+            docker rm -f $CELERY_CONTAINER 2>/dev/null || true
+            docker run -d \
+              --name $CELERY_CONTAINER \
+              --network $NETWORK \
+              -e DATABASE_URL="postgresql+asyncpg://sim:simpass@$DB_CONTAINER:5432/luboilsim" \
+              -e REDIS_URL="redis://$REDIS_CONTAINER:6379/0" \
+              -e CELERY_BROKER_URL="redis://$REDIS_CONTAINER:6379/1" \
+              -e PYTHONDONTWRITEBYTECODE=1 \
+              -e PYTHONUNBUFFERED=1 \
+              --restart unless-stopped \
+              $BACKEND_IMAGE \
+              celery -A app.celery_app worker --loglevel=info --concurrency=4
+
+            echo "Restart Frontend container"
+            docker rm -f $FRONTEND_CONTAINER 2>/dev/null || true
+            docker run -d \
+              --name $FRONTEND_CONTAINER \
+              --network $NETWORK \
+              -p 7845:7845 \
+              --restart unless-stopped \
+              $FRONTEND_IMAGE
+
+            echo "Wait for services to start"
+            sleep 20
+
+            echo "Verify deployment (retry up to 6 times, 10s apart)"
+            for i in 1 2 3 4 5 6; do
+              sleep 10
+              curl -sf http://localhost:7846/docs > /dev/null && break
+              echo "Backend not ready yet (attempt $i/6)..."
+              if [ "$i" = "6" ]; then
+                echo "Backend failed to start after 80s"
+                docker logs --tail 50 $BACKEND_CONTAINER
+                exit 1
+              fi
+            done
+            curl -f http://localhost:7845/ || exit 1
+
+            echo "LubeOilSim deployment successful 🎉"

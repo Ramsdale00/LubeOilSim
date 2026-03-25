@@ -2,34 +2,27 @@ version: '3.9'
 
 services:
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ghcr.io/ramsdale00/lubeoilsim/frontend:latest
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - "7845:7845"
     environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_WS_URL=ws://localhost:8000
+      - VITE_API_URL=http://localhost:7846
+      - VITE_WS_URL=ws://localhost:7846
     depends_on:
       - backend
     networks:
       - simnet
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/ramsdale00/lubeoilsim/backend:latest
     ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
+      - "7846:7846"
     environment:
       - DATABASE_URL=postgresql+asyncpg://sim:simpass@postgres:5432/luboilsim
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,18 +30,16 @@ services:
         condition: service_healthy
     networks:
       - simnet
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 7846 --reload
 
   celery_worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    volumes:
-      - ./backend:/app
+    image: ghcr.io/ramsdale00/lubeoilsim/backend:latest
     environment:
       - DATABASE_URL=postgresql+asyncpg://sim:simpass@postgres:5432/luboilsim
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,7 +58,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "7847:5432"
     networks:
       - simnet
     healthcheck:
@@ -79,7 +70,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "7848:6379"
     networks:
       - simnet
     healthcheck:
