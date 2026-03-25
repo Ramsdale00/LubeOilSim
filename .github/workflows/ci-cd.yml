@@ -83,6 +83,9 @@ jobs:
                 -p 7847:5432 \
                 --restart unless-stopped \
                 postgres:15-alpine
+            else
+              echo "PostgreSQL container already exists"
+              docker start $DB_CONTAINER || true
             fi
 
             echo "Ensure Redis exists"
@@ -93,14 +96,40 @@ jobs:
                 -p 7848:6379 \
                 --restart unless-stopped \
                 redis:7-alpine
+            else
+              echo "Redis container already exists"
+              docker start $REDIS_CONTAINER || true
             fi
 
             echo "Wait for services ready"
-            until docker exec $DB_CONTAINER pg_isready -U sim > /dev/null 2>&1; do
-              sleep 2
+            echo "Waiting for PostgreSQL..."
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              if docker exec $DB_CONTAINER pg_isready -U sim > /dev/null 2>&1; then
+                echo "PostgreSQL is ready"
+                break
+              fi
+              echo "PostgreSQL not ready yet (attempt $i/10)..."
+              sleep 3
+              if [ "$i" = "10" ]; then
+                echo "PostgreSQL failed to start after 30s"
+                docker logs --tail 20 $DB_CONTAINER
+                exit 1
+              fi
             done
-            until docker exec $REDIS_CONTAINER redis-cli ping > /dev/null 2>&1; do
-              sleep 2
+            
+            echo "Waiting for Redis..."
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              if docker exec $REDIS_CONTAINER redis-cli ping > /dev/null 2>&1; then
+                echo "Redis is ready"
+                break
+              fi
+              echo "Redis not ready yet (attempt $i/10)..."
+              sleep 3
+              if [ "$i" = "10" ]; then
+                echo "Redis failed to start after 30s"
+                docker logs --tail 20 $REDIS_CONTAINER
+                exit 1
+              fi
             done
 
             echo "Restart Backend container"
