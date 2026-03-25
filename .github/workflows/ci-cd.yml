@@ -123,6 +123,10 @@ jobs:
               docker exec $DB_CONTAINER psql -U sim -d postgres -c "CREATE DATABASE luboilsim;" || true
             }
             
+            echo "Test network connectivity"
+            echo "Containers on network:"
+            docker network inspect $NETWORK --format='{{range .Containers}}{{.Name}} {{end}}'
+            
             echo "Waiting for Redis..."
             for i in 1 2 3 4 5 6 7 8 9 10; do
               if docker exec $REDIS_CONTAINER redis-cli ping > /dev/null 2>&1; then
@@ -144,9 +148,9 @@ jobs:
               --name $BACKEND_CONTAINER \
               --network $NETWORK \
               -p 7846:7846 \
-              -e DATABASE_URL="postgresql+asyncpg://sim:simpass@$DB_CONTAINER:5432/luboilsim" \
-              -e REDIS_URL="redis://$REDIS_CONTAINER:6379/0" \
-              -e CELERY_BROKER_URL="redis://$REDIS_CONTAINER:6379/1" \
+              -e DATABASE_URL="postgresql+asyncpg://sim:simpass@lubeoilsim_postgres:5432/luboilsim" \
+              -e REDIS_URL="redis://lubeoilsim_redis:6379/0" \
+              -e CELERY_BROKER_URL="redis://lubeoilsim_redis:6379/1" \
               -e PYTHONDONTWRITEBYTECODE=1 \
               -e PYTHONUNBUFFERED=1 \
               --restart unless-stopped \
@@ -158,9 +162,9 @@ jobs:
             docker run -d \
               --name $CELERY_CONTAINER \
               --network $NETWORK \
-              -e DATABASE_URL="postgresql+asyncpg://sim:simpass@$DB_CONTAINER:5432/luboilsim" \
-              -e REDIS_URL="redis://$REDIS_CONTAINER:6379/0" \
-              -e CELERY_BROKER_URL="redis://$REDIS_CONTAINER:6379/1" \
+              -e DATABASE_URL="postgresql+asyncpg://sim:simpass@lubeoilsim_postgres:5432/luboilsim" \
+              -e REDIS_URL="redis://lubeoilsim_redis:6379/0" \
+              -e CELERY_BROKER_URL="redis://lubeoilsim_redis:6379/1" \
               -e PYTHONDONTWRITEBYTECODE=1 \
               -e PYTHONUNBUFFERED=1 \
               --restart unless-stopped \
