@@ -9,6 +9,7 @@ from app.api.supply import router as supply_router
 from app.api.equipment import router as equipment_router
 from app.api.ai_panel import router as ai_router
 from app.api.simulation_control import router as simulation_router
+from app.api.document_assistant import router as doc_assistant_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -21,3 +22,4 @@ api_router.include_router(supply_router)
 api_router.include_router(equipment_router)
 api_router.include_router(ai_router)
 api_router.include_router(simulation_router)
+api_router.include_router(doc_assistant_router)
