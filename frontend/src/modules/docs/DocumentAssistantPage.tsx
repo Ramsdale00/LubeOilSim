@@ -76,7 +76,11 @@ interface DocStatusEntry {
 
 async function queryDocuments(query: string) {
   const res = await axios.post('/api/v1/ai/doc-query', { query })
-  return res.data as {
+  const data = res.data
+  if (typeof data?.answer !== 'string' || !Array.isArray(data?.sources)) {
+    throw new Error('Invalid response from API')
+  }
+  return data as {
     query: string
     answer: string
     sources: SourceChunk[]
@@ -87,7 +91,7 @@ async function queryDocuments(query: string) {
 
 async function fetchDocStatus(): Promise<DocStatusEntry[]> {
   const res = await axios.get('/api/v1/ai/doc-status')
-  return res.data.docs as DocStatusEntry[]
+  return Array.isArray(res.data?.docs) ? (res.data.docs as DocStatusEntry[]) : []
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -175,7 +179,7 @@ export function DocumentAssistantPage() {
     }
   }
 
-  const loadedCount = docStatuses.filter((d) => d.loaded).length
+  const loadedCount = (docStatuses ?? []).filter((d) => d.loaded).length
 
   return (
     <div className="space-y-4">
