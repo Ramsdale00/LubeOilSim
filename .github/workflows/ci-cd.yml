@@ -177,6 +177,7 @@ jobs:
               --name $FRONTEND_CONTAINER \
               --network $NETWORK \
               -p 7845:7845 \
+              -e BACKEND_HOST=lubeoilsim_backend:7846 \
               --restart unless-stopped \
               $FRONTEND_IMAGE
 

@@ -6,8 +6,7 @@ services:
     ports:
       - "7845:7845"
     environment:
-      - VITE_API_URL=http://localhost:7846
-      - VITE_WS_URL=ws://localhost:7846
+      - BACKEND_HOST=backend:7846
     depends_on:
       - backend
     networks:
