@@ -1,10 +1,11 @@
 """
-document_rag.py — Simple keyword-based RAG engine for LubeOilSim documents.
+document_rag.py — Keyword-based RAG engine for LubeOilSim documents.
 
 Loads D1–D6 .docx files from the backend directory, chunks them into paragraphs
 and table rows, and scores chunks against a query using pure Python token overlap.
-No external NLP or LLM required. Ollama integration can be added later by replacing
-`format_response()` with an LLM call using the retrieved chunks as context.
+
+Ollama integration is included: set OLLAMA_URL env var to enable LLM synthesis.
+If Ollama is unavailable, format_response() returns raw excerpts as fallback.
 """
 
 from __future__ import annotations
@@ -14,12 +15,21 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+import httpx
+
 # python-docx is required — install via: pip install python-docx
 try:
     import docx  # type: ignore
+    from docx.text.paragraph import Paragraph as DocxParagraph  # type: ignore
+    from docx.table import Table as DocxTable  # type: ignore
     _DOCX_AVAILABLE = True
 except ImportError:
     _DOCX_AVAILABLE = False
+
+# ── Ollama config (optional) ───────────────────────────────────────────────────
+
+_OLLAMA_URL: str = os.environ.get("OLLAMA_URL", "")
+_OLLAMA_MODEL: str = os.environ.get("OLLAMA_MODEL", "llama3.2")
 
 # ── Document metadata ─────────────────────────────────────────────────────────
 
@@ -89,7 +99,14 @@ def tokenize(text: str) -> list[str]:
 # ── Document loading ──────────────────────────────────────────────────────────
 
 def _extract_chunks_from_docx(path: str, doc_id: str, doc_title: str) -> list[Chunk]:
-    """Parse a .docx file into paragraph and table-row chunks."""
+    """
+    Parse a .docx file into paragraph and table-row chunks.
+
+    Iterates document body elements in order (paragraphs and tables interleaved)
+    so that tables inherit the current_section set by the nearest preceding
+    heading paragraph. This ensures e.g. the "5. Approvals & Sign-Off" table
+    rows get section="5. Approvals & Sign-Off" rather than the table header row.
+    """
     if not _DOCX_AVAILABLE:
         return []
 
@@ -101,48 +118,59 @@ def _extract_chunks_from_docx(path: str, doc_id: str, doc_title: str) -> list[Ch
     chunks: list[Chunk] = []
     current_section = "General"
 
-    # ── Paragraphs ────────────────────────────────────────────────────────────
-    for para in document.paragraphs:
-        text = para.text.strip()
-        if not text:
-            continue
+    for child in document.element.body:
+        # Strip XML namespace prefix to get plain tag name ('p' or 'tbl')
+        tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
 
-        # Detect section headings (Word styles Heading 1-4, or all-caps short lines)
-        style_name = para.style.name.lower() if para.style else ""
-        is_heading = (
-            "heading" in style_name
-            or (len(text) < 80 and text.isupper())
-            or (len(text) < 80 and text.endswith(":") and "\n" not in text)
-        )
-
-        if is_heading:
-            current_section = text.rstrip(":")
-            # Also index the heading itself as a short chunk
-            if len(text) > 5:
-                chunks.append(Chunk(doc_id=doc_id, doc_title=doc_title, section=current_section, text=text, is_heading=True))
-        else:
-            if len(text) >= 20:  # skip trivially short lines
-                chunks.append(Chunk(doc_id=doc_id, doc_title=doc_title, section=current_section, text=text))
-
-    # ── Tables ────────────────────────────────────────────────────────────────
-    for table in document.tables:
-        # Grab header row as section label
-        header_row = table.rows[0].cells if table.rows else []
-        header_text = " | ".join(c.text.strip() for c in header_row if c.text.strip())
-        table_section = header_text[:80] if header_text else current_section
-
-        for row in table.rows[1:]:  # skip header row
-            cells = [c.text.strip() for c in row.cells if c.text.strip()]
-            if not cells:
+        if tag == "p":
+            para = DocxParagraph(child, document)
+            text = para.text.strip()
+            if not text:
                 continue
-            row_text = " | ".join(cells)
-            if len(row_text) >= 10:
-                chunks.append(Chunk(
-                    doc_id=doc_id,
-                    doc_title=doc_title,
-                    section=table_section,
-                    text=row_text,
-                ))
+
+            style_name = para.style.name.lower() if para.style else ""
+            is_heading = (
+                "heading" in style_name
+                or (len(text) < 80 and text.isupper())
+                or (len(text) < 80 and text.endswith(":") and "\n" not in text)
+            )
+
+            if is_heading:
+                current_section = text.rstrip(":")
+                if len(text) > 5:
+                    chunks.append(Chunk(
+                        doc_id=doc_id, doc_title=doc_title,
+                        section=current_section, text=text, is_heading=True,
+                    ))
+            else:
+                if len(text) >= 20:
+                    chunks.append(Chunk(
+                        doc_id=doc_id, doc_title=doc_title,
+                        section=current_section, text=text,
+                    ))
+
+        elif tag == "tbl":
+            table = DocxTable(child, document)
+            if not table.rows:
+                continue
+
+            # Section is the heading paragraph context, NOT the table header row.
+            # This lets the section-bonus scoring connect "approval" queries to
+            # rows inside the "5. Approvals & Sign-Off" table.
+            table_section = current_section
+
+            for row in table.rows[1:]:  # skip header row
+                cells = [c.text.strip() for c in row.cells if c.text.strip()]
+                if not cells:
+                    continue
+                row_text = " | ".join(cells)
+                if len(row_text) >= 10:
+                    chunks.append(Chunk(
+                        doc_id=doc_id,
+                        doc_title=doc_title,
+                        section=table_section,
+                        text=row_text,
+                    ))
 
     return chunks
 
@@ -154,7 +182,6 @@ def load_all_documents(docs_dir: str) -> list[Chunk]:
     """
     all_chunks: list[Chunk] = []
     for doc_id, doc_title in DOC_META.items():
-        # Match files like D1_*.docx
         matches = [
             f for f in os.listdir(docs_dir)
             if f.startswith(f"{doc_id}_") and f.endswith(".docx")
@@ -175,7 +202,7 @@ def _score_chunk(query_tokens: set[str], chunk: Chunk) -> float:
     Score a chunk by token overlap with the query.
     - Base score: fraction of query tokens that appear in the chunk text.
     - Section bonus: +0.3 if a section token prefix-matches a query token
-      (5-char prefix handles singular/plural, e.g. ingredient/ingredients).
+      (5-char prefix handles singular/plural, e.g. approval/approvals).
     - Heading bonus: ×1.5 if any query token appears in the first 60 chars.
     """
     if not chunk.tokens:
@@ -185,8 +212,9 @@ def _score_chunk(query_tokens: set[str], chunk: Chunk) -> float:
     matches = query_tokens & chunk_token_set
     base_score = len(matches) / max(len(query_tokens), 1) if matches else 0.0
 
-    # Section-token prefix bonus — rescues table rows whose text doesn't
-    # contain query terms but whose section/header does (e.g. "ingredient rows")
+    # Section-token prefix bonus — rescues table rows whose text tokens don't
+    # overlap the query but whose section heading does (e.g. approval rows,
+    # ingredient rows).
     if chunk.section_tokens:
         for s_tok in set(chunk.section_tokens):
             s_prefix = s_tok[:5]
@@ -233,7 +261,6 @@ def retrieve(query: str, chunks: list[Chunk], k: int = 6) -> list[RetrievedChunk
     results: list[RetrievedChunk] = []
     seen_texts: set[str] = set()
     for score, chunk in scored:
-        # Deduplicate near-identical excerpts
         key = chunk.text[:80]
         if key in seen_texts:
             continue
@@ -253,17 +280,16 @@ def retrieve(query: str, chunks: list[Chunk], k: int = 6) -> list[RetrievedChunk
     return results
 
 
-# ── Response formatter ────────────────────────────────────────────────────────
+# ── Response formatters ───────────────────────────────────────────────────────
 
 def format_response(query: str, top_chunks: list[RetrievedChunk]) -> str:
     """
-    Format retrieved chunks into a readable answer.
-    No LLM synthesis — the excerpts ARE the answer.
-    Replace this function with an Ollama/LLM call when ready.
+    Fallback formatter — returns raw excerpts with source attribution.
+    Used when Ollama is unavailable or OLLAMA_URL is not set.
     """
     if not top_chunks:
         return (
-            "No relevant content found across the 6 knowledge-base documents for your query. "
+            "No relevant content found in the D1–D6 knowledge-base documents. "
             "Try rephrasing or using more specific terms from the documents."
         )
 
@@ -286,6 +312,48 @@ def format_response(query: str, top_chunks: list[RetrievedChunk]) -> str:
         lines.append("")
 
     return "\n".join(lines).strip()
+
+
+async def query_with_ollama(query: str, top_chunks: list[RetrievedChunk]) -> Optional[str]:
+    """
+    Call Ollama to synthesize a natural language answer from retrieved chunks.
+    Returns None if OLLAMA_URL is not configured or if the call fails —
+    the caller should fall back to format_response() in that case.
+    """
+    if not _OLLAMA_URL or not top_chunks:
+        return None
+
+    context_parts = []
+    for c in top_chunks:
+        context_parts.append(f"[{c.doc_id} — {c.doc_title} | Section: {c.section}]\n{c.excerpt}")
+    context = "\n\n".join(context_parts)
+
+    prompt = (
+        "You are a document assistant for a Lube Oil Blending Plant. "
+        "Answer the question below using ONLY the provided document excerpts. "
+        "Be concise and structured. If the answer is a list or chain, use numbered items. "
+        "If the excerpts do not contain enough information to answer fully, say so clearly.\n\n"
+        f"Question: {query}\n\n"
+        f"Document excerpts:\n{context}\n\n"
+        "Answer:"
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.post(
+                f"{_OLLAMA_URL}/api/generate",
+                json={
+                    "model": _OLLAMA_MODEL,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.1, "num_predict": 400},
+                },
+            )
+            r.raise_for_status()
+            text = r.json().get("response", "").strip()
+            return text or None
+    except Exception:
+        return None  # silent fallback to raw excerpts
 
 
 # ── Singleton corpus ──────────────────────────────────────────────────────────
