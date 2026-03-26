@@ -1,0 +1,281 @@
+"""
+document_rag.py — Simple keyword-based RAG engine for LubeOilSim documents.
+
+Loads D1–D6 .docx files from the backend directory, chunks them into paragraphs
+and table rows, and scores chunks against a query using pure Python token overlap.
+No external NLP or LLM required. Ollama integration can be added later by replacing
+`format_response()` with an LLM call using the retrieved chunks as context.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+from dataclasses import dataclass, field
+from typing import Optional
+
+# python-docx is required — install via: pip install python-docx
+try:
+    import docx  # type: ignore
+    _DOCX_AVAILABLE = True
+except ImportError:
+    _DOCX_AVAILABLE = False
+
+# ── Document metadata ─────────────────────────────────────────────────────────
+
+DOC_META: dict[str, str] = {
+    "D0": "RAG Chatbot User Questions Guide",
+    "D1": "Batch Manufacturing Record — 15W-40",
+    "D2": "SCADA / OPC-UA Tag Register",
+    "D3": "Cybersecurity Risk Assessment (IEC 62443)",
+    "D4": "As-Is / To-Be Process Map",
+    "D5": "QC Test Procedures & Specifications",
+    "D6": "LIMS Requirements Specification",
+}
+
+# Common English stop-words to ignore during scoring
+_STOP_WORDS: frozenset[str] = frozenset({
+    "the", "and", "for", "are", "with", "that", "this", "from", "have", "was",
+    "has", "not", "but", "all", "its", "can", "you", "your", "our", "will",
+    "been", "also", "into", "used", "use", "each", "may", "shall", "any",
+    "such", "they", "then", "than", "when", "where", "which", "there", "their",
+    "these", "those", "more", "must", "should", "would", "could", "during",
+    "between", "within", "without", "under", "over", "after", "before",
+    "following", "based", "per", "via", "e.g", "i.e",
+})
+
+
+# ── Data types ────────────────────────────────────────────────────────────────
+
+@dataclass
+class Chunk:
+    doc_id: str
+    doc_title: str
+    section: str
+    text: str
+    tokens: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not self.tokens:
+            self.tokens = tokenize(self.text)
+
+
+@dataclass
+class RetrievedChunk:
+    doc_id: str
+    doc_title: str
+    section: str
+    excerpt: str
+    score: float
+
+
+# ── Tokeniser ─────────────────────────────────────────────────────────────────
+
+def tokenize(text: str) -> list[str]:
+    """Lowercase, split on non-alphanumeric, drop stop-words and short tokens."""
+    raw = re.findall(r"\b[a-zA-Z0-9]+\b", text.lower())
+    return [t for t in raw if len(t) >= 3 and t not in _STOP_WORDS]
+
+
+# ── Document loading ──────────────────────────────────────────────────────────
+
+def _extract_chunks_from_docx(path: str, doc_id: str, doc_title: str) -> list[Chunk]:
+    """Parse a .docx file into paragraph and table-row chunks."""
+    if not _DOCX_AVAILABLE:
+        return []
+
+    try:
+        document = docx.Document(path)
+    except Exception:
+        return []
+
+    chunks: list[Chunk] = []
+    current_section = "General"
+
+    # ── Paragraphs ────────────────────────────────────────────────────────────
+    for para in document.paragraphs:
+        text = para.text.strip()
+        if not text:
+            continue
+
+        # Detect section headings (Word styles Heading 1-4, or all-caps short lines)
+        style_name = para.style.name.lower() if para.style else ""
+        is_heading = (
+            "heading" in style_name
+            or (len(text) < 80 and text.isupper())
+            or (len(text) < 80 and text.endswith(":") and "\n" not in text)
+        )
+
+        if is_heading:
+            current_section = text.rstrip(":")
+            # Also index the heading itself as a short chunk
+            if len(text) > 5:
+                chunks.append(Chunk(doc_id=doc_id, doc_title=doc_title, section=current_section, text=text))
+        else:
+            if len(text) >= 20:  # skip trivially short lines
+                chunks.append(Chunk(doc_id=doc_id, doc_title=doc_title, section=current_section, text=text))
+
+    # ── Tables ────────────────────────────────────────────────────────────────
+    for table in document.tables:
+        # Grab header row as section label
+        header_row = table.rows[0].cells if table.rows else []
+        header_text = " | ".join(c.text.strip() for c in header_row if c.text.strip())
+        table_section = header_text[:80] if header_text else current_section
+
+        for row in table.rows[1:]:  # skip header row
+            cells = [c.text.strip() for c in row.cells if c.text.strip()]
+            if not cells:
+                continue
+            row_text = " | ".join(cells)
+            if len(row_text) >= 10:
+                chunks.append(Chunk(
+                    doc_id=doc_id,
+                    doc_title=doc_title,
+                    section=table_section,
+                    text=row_text,
+                ))
+
+    return chunks
+
+
+def load_all_documents(docs_dir: str) -> list[Chunk]:
+    """
+    Load D0–D6 .docx documents from docs_dir and return all chunks.
+    Documents that cannot be found or parsed are skipped silently.
+    """
+    all_chunks: list[Chunk] = []
+    for doc_id, doc_title in DOC_META.items():
+        # Match files like D1_*.docx
+        matches = [
+            f for f in os.listdir(docs_dir)
+            if f.startswith(f"{doc_id}_") and f.endswith(".docx")
+        ]
+        if not matches:
+            continue
+        path = os.path.join(docs_dir, matches[0])
+        chunks = _extract_chunks_from_docx(path, doc_id, doc_title)
+        all_chunks.extend(chunks)
+
+    return all_chunks
+
+
+# ── Retrieval ─────────────────────────────────────────────────────────────────
+
+def _score_chunk(query_tokens: set[str], chunk: Chunk) -> float:
+    """
+    Score a chunk by token overlap with the query.
+    - Base score: fraction of query tokens that appear in the chunk.
+    - Heading bonus: ×1.5 if any query token appears in the first 60 chars
+      of the text (likely a heading or key term in a table row).
+    """
+    if not chunk.tokens:
+        return 0.0
+
+    chunk_token_set = set(chunk.tokens)
+    matches = query_tokens & chunk_token_set
+    if not matches:
+        return 0.0
+
+    base_score = len(matches) / max(len(query_tokens), 1)
+
+    # Heading bonus
+    head_text = chunk.text[:60].lower()
+    head_bonus = 1.5 if any(t in head_text for t in query_tokens) else 1.0
+
+    # Length penalty — very long chunks dilute relevance slightly
+    length_factor = min(1.0, 80 / max(len(chunk.tokens), 1)) + 0.5
+
+    return base_score * head_bonus * length_factor
+
+
+def retrieve(query: str, chunks: list[Chunk], k: int = 4) -> list[RetrievedChunk]:
+    """Return the top-k most relevant chunks for the query."""
+    query_tokens = set(tokenize(query))
+    if not query_tokens:
+        return []
+
+    scored: list[tuple[float, Chunk]] = []
+    for chunk in chunks:
+        score = _score_chunk(query_tokens, chunk)
+        if score > 0:
+            scored.append((score, chunk))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    results: list[RetrievedChunk] = []
+    seen_texts: set[str] = set()
+    for score, chunk in scored:
+        # Deduplicate near-identical excerpts
+        key = chunk.text[:80]
+        if key in seen_texts:
+            continue
+        seen_texts.add(key)
+
+        excerpt = chunk.text if len(chunk.text) <= 300 else chunk.text[:297] + "..."
+        results.append(RetrievedChunk(
+            doc_id=chunk.doc_id,
+            doc_title=chunk.doc_title,
+            section=chunk.section,
+            excerpt=excerpt,
+            score=round(score, 4),
+        ))
+        if len(results) >= k:
+            break
+
+    return results
+
+
+# ── Response formatter ────────────────────────────────────────────────────────
+
+def format_response(query: str, top_chunks: list[RetrievedChunk]) -> str:
+    """
+    Format retrieved chunks into a readable answer.
+    No LLM synthesis — the excerpts ARE the answer.
+    Replace this function with an Ollama/LLM call when ready.
+    """
+    if not top_chunks:
+        return (
+            "No relevant content found across the 6 knowledge-base documents for your query. "
+            "Try rephrasing or using more specific terms from the documents."
+        )
+
+    lines: list[str] = []
+    seen_docs: set[str] = set()
+
+    for chunk in top_chunks:
+        doc_label = f"[{chunk.doc_id}] {chunk.doc_title}"
+        section_label = chunk.section if chunk.section and chunk.section != "General" else ""
+
+        if doc_label not in seen_docs:
+            seen_docs.add(doc_label)
+            lines.append(f"From {doc_label}:")
+        else:
+            lines.append(f"  Also from {doc_label}:")
+
+        if section_label:
+            lines.append(f"  Section: {section_label}")
+        lines.append(f"  {chunk.excerpt}")
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+# ── Singleton corpus ──────────────────────────────────────────────────────────
+
+_corpus: Optional[list[Chunk]] = None
+_docs_dir: Optional[str] = None
+
+
+def get_corpus(docs_dir: str) -> list[Chunk]:
+    """Lazy-load and cache the full document corpus."""
+    global _corpus, _docs_dir
+    if _corpus is None or _docs_dir != docs_dir:
+        _corpus = load_all_documents(docs_dir)
+        _docs_dir = docs_dir
+    return _corpus
+
+
+def get_loaded_doc_ids(docs_dir: str) -> list[str]:
+    """Return which doc IDs were successfully loaded (have at least one chunk)."""
+    corpus = get_corpus(docs_dir)
+    return list({c.doc_id for c in corpus})

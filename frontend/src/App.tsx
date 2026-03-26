@@ -7,6 +7,7 @@ import { RecipePage } from '@/modules/recipe/RecipePage'
 import { QualityPage } from '@/modules/quality/QualityPage'
 import { SupplyPage } from '@/modules/supply/SupplyPage'
 import { AIPage } from '@/modules/ai/AIPage'
+import { DocumentAssistantPage } from '@/modules/docs/DocumentAssistantPage'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/quality" element={<QualityPage />} />
           <Route path="/supply" element={<SupplyPage />} />
           <Route path="/ai" element={<AIPage />} />
+          <Route path="/docs" element={<DocumentAssistantPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
