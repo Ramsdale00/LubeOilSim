@@ -33,6 +33,11 @@ DOC_META: dict[str, str] = {
     "D6": "LIMS Requirements Specification",
 }
 
+# D0 is a meta-document (sample questions guide about D1–D6), NOT plant knowledge.
+# It is loaded and shown in the status panel, but excluded from search results —
+# otherwise its 88 question rows outrank the actual content documents.
+_EXCLUDE_FROM_RETRIEVAL: frozenset[str] = frozenset({"D0"})
+
 # Common English stop-words to ignore during scoring
 _STOP_WORDS: frozenset[str] = frozenset({
     "the", "and", "for", "are", "with", "that", "this", "from", "have", "was",
@@ -196,6 +201,8 @@ def retrieve(query: str, chunks: list[Chunk], k: int = 4) -> list[RetrievedChunk
 
     scored: list[tuple[float, Chunk]] = []
     for chunk in chunks:
+        if chunk.doc_id in _EXCLUDE_FROM_RETRIEVAL:
+            continue  # skip meta-documents (D0)
         score = _score_chunk(query_tokens, chunk)
         if score > 0:
             scored.append((score, chunk))
