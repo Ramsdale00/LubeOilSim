@@ -58,11 +58,15 @@ class Chunk:
     doc_title: str
     section: str
     text: str
+    is_heading: bool = False
     tokens: list[str] = field(default_factory=list)
+    section_tokens: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.tokens:
             self.tokens = tokenize(self.text)
+        if not self.section_tokens:
+            self.section_tokens = tokenize(self.section)
 
 
 @dataclass
@@ -115,7 +119,7 @@ def _extract_chunks_from_docx(path: str, doc_id: str, doc_title: str) -> list[Ch
             current_section = text.rstrip(":")
             # Also index the heading itself as a short chunk
             if len(text) > 5:
-                chunks.append(Chunk(doc_id=doc_id, doc_title=doc_title, section=current_section, text=text))
+                chunks.append(Chunk(doc_id=doc_id, doc_title=doc_title, section=current_section, text=text, is_heading=True))
         else:
             if len(text) >= 20:  # skip trivially short lines
                 chunks.append(Chunk(doc_id=doc_id, doc_title=doc_title, section=current_section, text=text))
@@ -169,19 +173,34 @@ def load_all_documents(docs_dir: str) -> list[Chunk]:
 def _score_chunk(query_tokens: set[str], chunk: Chunk) -> float:
     """
     Score a chunk by token overlap with the query.
-    - Base score: fraction of query tokens that appear in the chunk.
-    - Heading bonus: ×1.5 if any query token appears in the first 60 chars
-      of the text (likely a heading or key term in a table row).
+    - Base score: fraction of query tokens that appear in the chunk text.
+    - Section bonus: +0.3 if a section token prefix-matches a query token
+      (5-char prefix handles singular/plural, e.g. ingredient/ingredients).
+    - Heading bonus: ×1.5 if any query token appears in the first 60 chars.
     """
     if not chunk.tokens:
         return 0.0
 
     chunk_token_set = set(chunk.tokens)
     matches = query_tokens & chunk_token_set
-    if not matches:
-        return 0.0
+    base_score = len(matches) / max(len(query_tokens), 1) if matches else 0.0
 
-    base_score = len(matches) / max(len(query_tokens), 1)
+    # Section-token prefix bonus — rescues table rows whose text doesn't
+    # contain query terms but whose section/header does (e.g. "ingredient rows")
+    if chunk.section_tokens:
+        for s_tok in set(chunk.section_tokens):
+            s_prefix = s_tok[:5]
+            for q_tok in query_tokens:
+                if q_tok.startswith(s_prefix) or s_tok.startswith(q_tok[:5]):
+                    base_score += 0.3
+                    break
+            else:
+                continue
+            break  # one +0.3 bonus maximum
+
+    base_score = min(base_score, 1.0)
+    if base_score == 0.0:
+        return 0.0
 
     # Heading bonus
     head_text = chunk.text[:60].lower()
@@ -193,7 +212,7 @@ def _score_chunk(query_tokens: set[str], chunk: Chunk) -> float:
     return base_score * head_bonus * length_factor
 
 
-def retrieve(query: str, chunks: list[Chunk], k: int = 4) -> list[RetrievedChunk]:
+def retrieve(query: str, chunks: list[Chunk], k: int = 6) -> list[RetrievedChunk]:
     """Return the top-k most relevant chunks for the query."""
     query_tokens = set(tokenize(query))
     if not query_tokens:
@@ -203,6 +222,8 @@ def retrieve(query: str, chunks: list[Chunk], k: int = 4) -> list[RetrievedChunk
     for chunk in chunks:
         if chunk.doc_id in _EXCLUDE_FROM_RETRIEVAL:
             continue  # skip meta-documents (D0)
+        if chunk.is_heading:
+            continue  # heading-only chunks carry no answer content
         score = _score_chunk(query_tokens, chunk)
         if score > 0:
             scored.append((score, chunk))

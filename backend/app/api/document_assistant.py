@@ -78,7 +78,7 @@ async def doc_query(body: DocQueryRequest) -> DocQueryResponse:
     t0 = time.perf_counter()
 
     corpus = get_corpus(_BACKEND_DIR)
-    top_chunks = retrieve(body.query, corpus, k=4)
+    top_chunks = retrieve(body.query, corpus, k=6)
     answer = format_response(body.query, top_chunks)
 
     elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
