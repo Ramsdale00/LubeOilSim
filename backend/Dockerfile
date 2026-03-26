@@ -18,3 +18,5 @@ RUN find . -type d -name __pycache__ -exec rm -rf {} + || true
 RUN find . -name "*.pyc" -delete || true
 
 EXPOSE 7846
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7846"]

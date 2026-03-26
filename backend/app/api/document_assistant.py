@@ -25,9 +25,9 @@ from app.simulation.document_rag import (
 router = APIRouter(prefix="/ai", tags=["document-assistant"])
 
 # Resolve the docs directory relative to this file:
-# backend/app/api/document_assistant.py  →  backend/
+# backend/app/api/document_assistant.py → backend/app/api/ → backend/app/ → backend/
 _BACKEND_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..")
 )
 
 
