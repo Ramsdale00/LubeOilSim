@@ -19,6 +19,7 @@ from app.simulation.document_rag import (
     format_response,
     get_corpus,
     get_loaded_doc_ids,
+    query_with_ollama,
     retrieve,
 )
 
@@ -71,15 +72,18 @@ class DocStatusResponse(BaseModel):
 async def doc_query(body: DocQueryRequest) -> DocQueryResponse:
     """
     Query the knowledge-base documents using keyword-based retrieval.
-    Returns the top matching excerpts with source attribution.
-
-    No LLM is used — retrieved excerpts are the answer.
+    If OLLAMA_URL is configured, Ollama synthesizes a natural language answer.
+    Otherwise falls back to returning raw excerpts with source attribution.
     """
     t0 = time.perf_counter()
 
     corpus = get_corpus(_BACKEND_DIR)
     top_chunks = retrieve(body.query, corpus, k=6)
-    answer = format_response(body.query, top_chunks)
+
+    # Try LLM synthesis first; fall back to raw excerpts if Ollama is unavailable
+    answer = await query_with_ollama(body.query, top_chunks)
+    if answer is None:
+        answer = format_response(body.query, top_chunks)
 
     elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
 

@@ -153,6 +153,8 @@ jobs:
               -e LUBOIL_CELERY_BROKER_URL="redis://lubeoilsim_redis:6379/1" \
               -e PYTHONDONTWRITEBYTECODE=1 \
               -e PYTHONUNBUFFERED=1 \
+              -e OLLAMA_URL=http://4.247.160.91:62569 \
+              -e OLLAMA_MODEL=llama3.2 \
               --restart unless-stopped \
               $BACKEND_IMAGE \
               sh -c "echo 'Starting backend with LUBOIL_DATABASE_URL:' && echo \$LUBOIL_DATABASE_URL && sleep 10 && uvicorn app.main:app --host 0.0.0.0 --port 7846"
