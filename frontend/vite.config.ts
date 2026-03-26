@@ -9,8 +9,8 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     proxy: {
-      '/api': { target: 'http://backend:8000', changeOrigin: true },
-      '/ws': { target: 'ws://backend:8000', ws: true, changeOrigin: true }
+      '/api': { target: process.env.BACKEND_URL ?? 'http://localhost:8000', changeOrigin: true },
+      '/ws': { target: process.env.WS_URL ?? 'ws://localhost:8000', ws: true, changeOrigin: true }
     }
   }
 })
