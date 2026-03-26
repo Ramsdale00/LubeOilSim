@@ -341,16 +341,18 @@ async def query_with_ollama(query: str, top_chunks: list[RetrievedChunk]) -> Opt
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             r = await client.post(
-                f"{_OLLAMA_URL}/api/generate",
+                f"{_OLLAMA_URL}/chat",
                 json={
                     "model": _OLLAMA_MODEL,
-                    "prompt": prompt,
+                    "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
                     "options": {"temperature": 0.1, "num_predict": 400},
                 },
             )
             r.raise_for_status()
-            text = r.json().get("response", "").strip()
+            data = r.json()
+            # /chat returns {"message": {"role": "assistant", "content": "..."}}
+            text = (data.get("message") or {}).get("content", "").strip()
             return text or None
     except Exception:
         return None  # silent fallback to raw excerpts

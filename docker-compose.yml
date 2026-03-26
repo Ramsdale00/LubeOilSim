@@ -22,7 +22,7 @@ services:
       - LUBOIL_CELERY_BROKER_URL=redis://redis:6379/1
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
-      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_URL=http://4.247.160.91:62569
       - OLLAMA_MODEL=llama3.2
     depends_on:
       postgres:
@@ -80,18 +80,8 @@ services:
       timeout: 3s
       retries: 10
 
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - simnet
-
 volumes:
   pgdata:
-  ollama_data:
 
 networks:
   simnet:
