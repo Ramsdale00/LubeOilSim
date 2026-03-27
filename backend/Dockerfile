@@ -3,6 +3,8 @@ FROM python:3.11-slim
 # Prevent Python from writing .pyc files and buffer output
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# Disable pip cache
+ENV PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
 

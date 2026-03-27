@@ -94,7 +94,7 @@ export function AIPage() {
       addResponse({
         id: 'boot',
         command: '— System Initialised —',
-        response: "LubeOilSim AI Control Panel online. I can help you manage blends, optimise recipes, monitor quality, and analyse supply options. Try a quick command or type a natural language instruction.",
+        response: "OmniBlend AI Control Panel online. I can help you manage blends, optimise recipes, monitor quality, and analyse supply options. Try a quick command or type a natural language instruction.",
         actions_taken: ['System check complete', 'All modules connected', 'Simulation running'],
         timestamp: new Date().toISOString(),
         processing_time_ms: 0,
@@ -172,7 +172,7 @@ export function AIPage() {
         </div>
         <div className="flex items-center gap-2 glass-card px-3 py-2">
           <Bot className="w-4 h-4 text-pink-500" />
-          <span className="text-xs font-medium text-slate-600">LubeOilSim AI v2.4</span>
+          <span className="text-xs font-medium text-slate-600">OmniBlend AI v2.4</span>
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
         </div>
       </div>
@@ -224,7 +224,7 @@ export function AIPage() {
                       </div>
                       <div className="glass-card p-3 flex-1">
                         {entry.id === 'boot' && (
-                          <p className="text-xs font-semibold text-pink-600 mb-1">LubeOilSim AI</p>
+                          <p className="text-xs font-semibold text-pink-600 mb-1">OmniBlend AI</p>
                         )}
                         <p className="text-xs text-slate-700 leading-relaxed">{entry.response}</p>
                         {entry.actions_taken.length > 0 && (

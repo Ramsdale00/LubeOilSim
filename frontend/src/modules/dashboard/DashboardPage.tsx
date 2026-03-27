@@ -291,7 +291,7 @@ export function DashboardPage() {
               <Activity className="w-4 h-4 text-slate-500" />
               <p className="text-sm font-semibold text-slate-700">Live Event Feed</p>
             </div>
-            <span className="text-xs text-slate-400">{events.filter(e => !e.acknowledged).length} unread</span>
+            <span className="text-xs text-slate-400">{(events ?? []).filter(e => !e.acknowledged).length} unread</span>
           </div>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {events.slice(0, 8).map((event) => {

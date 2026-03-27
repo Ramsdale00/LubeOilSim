@@ -52,7 +52,7 @@ export function TopBar() {
           <Zap className="w-4 h-4 text-white" />
         </div>
         <div>
-          <span className="font-bold text-slate-800 text-sm">LubeOilSim</span>
+          <span className="font-bold text-slate-800 text-sm">OmniBlend Control</span>
           <span className="text-slate-400 text-xs ml-2">Digital Twin Simulator</span>
         </div>
       </div>

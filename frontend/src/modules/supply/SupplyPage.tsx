@@ -109,9 +109,10 @@ function BrandCard({
   materialFilter: string
   onToggleProduct: (id: string) => void
 }) {
+  const safeProducts = brand.products ?? []
   const visibleProducts = materialFilter === 'all'
-    ? brand.products
-    : brand.products.filter(p => p.material === materialFilter)
+    ? safeProducts
+    : safeProducts.filter(p => p.material === materialFilter)
 
   if (visibleProducts.length === 0) return null
 

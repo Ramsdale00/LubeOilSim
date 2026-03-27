@@ -153,8 +153,9 @@ export function TanksPage() {
     return () => clearInterval(interval)
   }, [isRunning, timeAcceleration, tanks, updateTank])
 
-  const filtered = filter === 'all' ? tanks : tanks.filter(t => t.material === filter)
-  const materials = Array.from(new Set(tanks.map(t => t.material)))
+  const safeTanks = tanks ?? []
+  const filtered = filter === 'all' ? safeTanks : safeTanks.filter(t => t.material === filter)
+  const materials = Array.from(new Set(safeTanks.map(t => t.material)))
 
   return (
     <div className="space-y-4">
@@ -163,9 +164,9 @@ export function TanksPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Tank Digital Twin</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            {tanks.filter(t => t.status === 'critical').length} critical ·
-            {tanks.filter(t => t.status === 'low').length} low stock ·
-            {tanks.filter(t => t.status === 'filling').length} filling
+            {safeTanks.filter(t => t.status === 'critical').length} critical ·
+            {safeTanks.filter(t => t.status === 'low').length} low stock ·
+            {safeTanks.filter(t => t.status === 'filling').length} filling
           </p>
         </div>
         {/* Filter chips */}

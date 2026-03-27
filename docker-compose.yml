@@ -2,7 +2,9 @@ version: '3.9'
 
 services:
   frontend:
-    image: ghcr.io/ramsdale00/lubeoilsim/frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "7845:7845"
     environment:
@@ -13,7 +15,9 @@ services:
       - simnet
 
   backend:
-    image: ghcr.io/ramsdale00/lubeoilsim/backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "7846:7846"
     environment:
@@ -34,7 +38,9 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 7846 --reload
 
   celery_worker:
-    image: ghcr.io/ramsdale00/lubeoilsim/backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     environment:
       - LUBOIL_DATABASE_URL=postgresql+asyncpg://sim:simpass@postgres:5432/luboilsim
       - LUBOIL_REDIS_URL=redis://redis:6379/0

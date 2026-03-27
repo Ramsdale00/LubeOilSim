@@ -103,14 +103,22 @@ export function DocumentAssistantPage() {
   const [input, setInput] = useState('')
   const [docStatuses, setDocStatuses] = useState<DocStatusEntry[]>([])
   const [statusLoading, setStatusLoading] = useState(true)
+  const [statusError, setStatusError] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   // Load doc statuses + boot message
   useEffect(() => {
+    setStatusLoading(true)
+    setStatusError(null)
     fetchDocStatus()
-      .then(setDocStatuses)
-      .catch(() => setDocStatuses([]))
+      .then((docs) => {
+        setDocStatuses(docs)
+      })
+      .catch(() => {
+        setDocStatuses([])
+        setStatusError('Unable to load document repository status. Check backend connectivity.')
+      })
       .finally(() => setStatusLoading(false))
 
     if (messages.length === 0) {
@@ -179,7 +187,8 @@ export function DocumentAssistantPage() {
     }
   }
 
-  const loadedCount = (docStatuses ?? []).filter((d) => d.loaded).length
+  const safeDocStatuses = docStatuses ?? []
+  const loadedCount = safeDocStatuses.filter((d) => d.loaded).length
 
   return (
     <div className="space-y-4">
@@ -197,6 +206,47 @@ export function DocumentAssistantPage() {
           <div className={clsx('w-2 h-2 rounded-full', loadedCount > 0 ? 'bg-teal-400 animate-pulse' : 'bg-slate-300')} />
         </div>
       </div>
+
+      {statusError && (
+        <div className="glass-card p-3 border border-red-200 bg-red-50 text-red-700 text-sm rounded-lg">
+          {statusError}
+        </div>
+      )}
+
+      <GlassCard className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">Document Repository</h2>
+            <p className="text-xs text-slate-500">View all injected knowledge documents and their ingest status.</p>
+          </div>
+          <span className="text-xs font-medium text-slate-600">Total chunks: {safeDocStatuses.reduce((acc, d) => acc + d.chunk_count, 0)}</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          {DOC_REGISTRY.map((doc) => {
+            const status = safeDocStatuses.find((s) => s.doc_id === doc.id)
+            return (
+              <div key={doc.id} className="glass-card p-2 rounded-lg border border-white/30">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold">{doc.id}</span>
+                  <span className={clsx('text-[10px] font-bold px-1.5 py-0.5 rounded', status?.loaded ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500')}>
+                    {status?.loaded ? 'Loaded' : 'Missing'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 font-semibold">{doc.title}</p>
+                <p className="text-[10px] text-slate-500 mt-1">{doc.desc}</p>
+                <p className="text-[10px] text-slate-500 mt-2">Chunks: {status?.chunk_count ?? 0}</p>
+              </div>
+            )
+          })}
+        </div>
+      </GlassCard>
+
+      {safeDocStatuses.length === 0 && !statusLoading && (
+        <GlassCard className="p-4 bg-slate-50 border border-slate-200">
+          <p className="text-sm font-medium text-slate-700">Document repository is empty.</p>
+          <p className="text-xs text-slate-500 mt-1">Add D0-D6 `.docx` files to `backend/app/data` or run seed data, then reload.</p>
+        </GlassCard>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left: Chat + prompts */}
