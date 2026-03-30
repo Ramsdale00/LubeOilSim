@@ -345,7 +345,7 @@ async def query_with_ollama(query: str, top_chunks: list[RetrievedChunk]) -> tup
                 f"{_OLLAMA_URL}/chat",
                 json={
                     "model": _OLLAMA_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
+                    "prompt": prompt,
                     "stream": False,
                     "options": {"temperature": 0.1, "num_predict": 400},
                 },
@@ -354,18 +354,18 @@ async def query_with_ollama(query: str, top_chunks: list[RetrievedChunk]) -> tup
             data = r.json()
 
             # Try multiple response shapes in priority order:
-            # 1. Ollama /api/chat  → {"message": {"content": "..."}}
-            text = (data.get("message") or {}).get("content", "").strip()
+            # 1. Ollama /api/generate → {"response": "..."}  (this endpoint uses prompt field)
+            text = (data.get("response") or "").strip()
 
-            # 2. OpenAI-compatible → {"choices": [{"message": {"content": "..."}}]}
+            # 2. Ollama /api/chat  → {"message": {"content": "..."}}
+            if not text:
+                text = (data.get("message") or {}).get("content", "").strip()
+
+            # 3. OpenAI-compatible → {"choices": [{"message": {"content": "..."}}]}
             if not text:
                 choices = data.get("choices") or []
                 if choices:
                     text = ((choices[0].get("message") or {}).get("content", "") or "").strip()
-
-            # 3. Ollama /api/generate → {"response": "..."}
-            if not text:
-                text = (data.get("response") or "").strip()
 
             if text:
                 return text, None
