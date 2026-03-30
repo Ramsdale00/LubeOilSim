@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Database,
   Search,
+  Loader2,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -43,7 +44,7 @@ const QUICK_PROMPTS: { label: string; docTag: string; color: string; query: stri
   { label: 'Full QC workflow from blend to approval?', docTag: 'CROSS', color: 'bg-slate-100 text-slate-700 border-slate-200', query: 'What is the complete quality control workflow from blend initiation through laboratory testing to final approval?' },
 ]
 
-// ── Document metadata for status panel ───────────────────────────────────────
+// ── Document metadata ─────────────────────────────────────────────────────────
 
 const DOC_REGISTRY = [
   { id: 'D0', title: 'RAG Demo Guide', desc: '88 sample questions across all domains', color: 'text-slate-600' },
@@ -65,7 +66,17 @@ const DOC_TAG_COLOR: Record<string, string> = {
   D6: 'bg-purple-200 text-purple-800',
 }
 
-// ── API call ──────────────────────────────────────────────────────────────────
+const DOC_BORDER_COLOR: Record<string, string> = {
+  D0: 'border-slate-300',
+  D1: 'border-blue-300',
+  D2: 'border-cyan-300',
+  D3: 'border-red-300',
+  D4: 'border-green-300',
+  D5: 'border-amber-300',
+  D6: 'border-purple-300',
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface DocStatusEntry {
   doc_id: string
@@ -73,6 +84,20 @@ interface DocStatusEntry {
   loaded: boolean
   chunk_count: number
 }
+
+interface DocSection {
+  section: string
+  chunks: string[]
+}
+
+interface DocContentResponse {
+  doc_id: string
+  doc_title: string
+  loaded: boolean
+  sections: DocSection[]
+}
+
+// ── API helpers ───────────────────────────────────────────────────────────────
 
 async function queryDocuments(query: string) {
   const res = await axios.post('/api/v1/ai/doc-query', { query })
@@ -94,6 +119,11 @@ async function fetchDocStatus(): Promise<DocStatusEntry[]> {
   return Array.isArray(res.data?.docs) ? (res.data.docs as DocStatusEntry[]) : []
 }
 
+async function fetchDocContent(docId: string): Promise<DocContentResponse> {
+  const res = await axios.get(`/api/v1/ai/doc-content/${docId}`)
+  return res.data as DocContentResponse
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function DocumentAssistantPage() {
@@ -106,6 +136,14 @@ export function DocumentAssistantPage() {
   const [statusError, setStatusError] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'prompts' | 'documents'>('prompts')
+
+  // Document reader state
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
+  const [docContent, setDocContent] = useState<DocContentResponse | null>(null)
+  const [docContentLoading, setDocContentLoading] = useState(false)
 
   // Load doc statuses + boot message
   useEffect(() => {
@@ -135,6 +173,21 @@ export function DocumentAssistantPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, typingText])
 
+  const handleSelectDoc = async (docId: string) => {
+    if (selectedDocId === docId) return
+    setSelectedDocId(docId)
+    setDocContent(null)
+    setDocContentLoading(true)
+    try {
+      const content = await fetchDocContent(docId)
+      setDocContent(content)
+    } catch {
+      setDocContent({ doc_id: docId, doc_title: docId, loaded: false, sections: [] })
+    } finally {
+      setDocContentLoading(false)
+    }
+  }
+
   const handleSend = async (cmd?: string) => {
     const query = (cmd ?? input).trim()
     if (!query || isLoading) return
@@ -142,7 +195,6 @@ export function DocumentAssistantPage() {
     setLoading(true)
     setTypingText('')
 
-    // Add user message immediately
     addMessage({
       id: `u-${Date.now()}`,
       role: 'user',
@@ -153,7 +205,6 @@ export function DocumentAssistantPage() {
     try {
       const result = await queryDocuments(query)
 
-      // Simulate typing effect for the answer
       const fullText = result.answer
       let i = 0
       const interval = setInterval(() => {
@@ -213,71 +264,149 @@ export function DocumentAssistantPage() {
         </div>
       )}
 
-      <GlassCard className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h2 className="text-lg font-bold text-slate-800">Document Repository</h2>
-            <p className="text-xs text-slate-500">View all injected knowledge documents and their ingest status.</p>
-          </div>
-          <span className="text-xs font-medium text-slate-600">Total chunks: {safeDocStatuses.reduce((acc, d) => acc + d.chunk_count, 0)}</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          {DOC_REGISTRY.map((doc) => {
-            const status = safeDocStatuses.find((s) => s.doc_id === doc.id)
-            return (
-              <div key={doc.id} className="glass-card p-2 rounded-lg border border-white/30">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold">{doc.id}</span>
-                  <span className={clsx('text-[10px] font-bold px-1.5 py-0.5 rounded', status?.loaded ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500')}>
-                    {status?.loaded ? 'Loaded' : 'Missing'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-700 font-semibold">{doc.title}</p>
-                <p className="text-[10px] text-slate-500 mt-1">{doc.desc}</p>
-                <p className="text-[10px] text-slate-500 mt-2">Chunks: {status?.chunk_count ?? 0}</p>
-              </div>
-            )
-          })}
-        </div>
-      </GlassCard>
-
-      {safeDocStatuses.length === 0 && !statusLoading && (
-        <GlassCard className="p-4 bg-slate-50 border border-slate-200">
-          <p className="text-sm font-medium text-slate-700">Document repository is empty.</p>
-          <p className="text-xs text-slate-500 mt-1">Add D0-D6 `.docx` files to `backend/app/data` or run seed data, then reload.</p>
-        </GlassCard>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left: Chat + prompts */}
+        {/* Left: Tabbed panel + Chat */}
         <div className="lg:col-span-2 flex flex-col gap-3">
 
-          {/* Quick prompts */}
+          {/* Tabbed card: Prompts | Documents */}
           <GlassCard className="p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Search className="w-3.5 h-3.5 text-slate-400" />
-              <p className="text-xs font-medium text-slate-500">Quick Prompts — from D0 Sample Questions</p>
+            {/* Tab buttons */}
+            <div className="flex items-center gap-1 mb-3 border-b border-white/20 pb-2">
+              <button
+                onClick={() => setActiveTab('prompts')}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                  activeTab === 'prompts'
+                    ? 'bg-teal-500 text-white shadow-sm shadow-teal-200'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
+                )}
+              >
+                <Search className="w-3 h-3" />
+                Prompts
+              </button>
+              <button
+                onClick={() => setActiveTab('documents')}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                  activeTab === 'documents'
+                    ? 'bg-teal-500 text-white shadow-sm shadow-teal-200'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
+                )}
+              >
+                <FileText className="w-3 h-3" />
+                Documents
+              </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1">
-              {QUICK_PROMPTS.map(({ label, docTag, color, query }) => (
-                <button
-                  key={label}
-                  onClick={() => handleSend(query)}
-                  disabled={isLoading}
-                  className={clsx(
-                    'flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-xs font-medium transition-all',
-                    'hover:brightness-95 disabled:opacity-50',
-                    color,
+
+            {/* Prompts tab */}
+            {activeTab === 'prompts' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1">
+                {QUICK_PROMPTS.map(({ label, docTag, color, query }) => (
+                  <button
+                    key={label}
+                    onClick={() => handleSend(query)}
+                    disabled={isLoading}
+                    className={clsx(
+                      'flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-xs font-medium transition-all',
+                      'hover:brightness-95 disabled:opacity-50',
+                      color,
+                    )}
+                  >
+                    <span className={clsx('text-xs font-bold px-1 py-0.5 rounded', DOC_TAG_COLOR[docTag] ?? 'bg-slate-200 text-slate-700')}>
+                      {docTag}
+                    </span>
+                    <span className="line-clamp-1">{label}</span>
+                    <ChevronRight className="w-3 h-3 ml-auto flex-shrink-0 opacity-60" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Documents tab */}
+            {activeTab === 'documents' && (
+              <div className="flex flex-col gap-3">
+                {/* Document selector pills */}
+                <div className="flex flex-wrap gap-2">
+                  {DOC_REGISTRY.map((doc) => {
+                    const status = safeDocStatuses.find((s) => s.doc_id === doc.id)
+                    const loaded = status?.loaded ?? false
+                    const isSelected = selectedDocId === doc.id
+                    return (
+                      <button
+                        key={doc.id}
+                        onClick={() => handleSelectDoc(doc.id)}
+                        className={clsx(
+                          'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all',
+                          isSelected
+                            ? 'ring-2 ring-teal-400 border-teal-300 bg-teal-50 text-teal-800'
+                            : 'border-white/40 glass-card text-slate-600 hover:border-teal-200 hover:bg-white/40',
+                          !loaded && 'opacity-50'
+                        )}
+                      >
+                        <span className={clsx('font-bold px-1 py-0.5 rounded text-[10px]', DOC_TAG_COLOR[doc.id])}>
+                          {doc.id}
+                        </span>
+                        <span className="hidden sm:inline">{doc.title}</span>
+                        {!statusLoading && !loaded && (
+                          <AlertCircle className="w-3 h-3 text-slate-400" />
+                        )}
+                        {!statusLoading && loaded && isSelected && (
+                          <CheckCircle2 className="w-3 h-3 text-teal-500" />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Document reader */}
+                <div className={clsx(
+                  'rounded-lg border min-h-[180px] max-h-[320px] overflow-y-auto',
+                  selectedDocId ? `border-l-4 ${DOC_BORDER_COLOR[selectedDocId] ?? 'border-teal-300'} bg-white/20 p-3` : 'border-white/20 bg-white/10 p-3'
+                )}>
+                  {!selectedDocId && (
+                    <div className="flex items-center justify-center h-32 text-slate-400 text-xs">
+                      Select a document above to read its contents.
+                    </div>
                   )}
-                >
-                  <span className={clsx('text-xs font-bold px-1 py-0.5 rounded', DOC_TAG_COLOR[docTag] ?? 'bg-slate-200 text-slate-700')}>
-                    {docTag}
-                  </span>
-                  <span className="line-clamp-1">{label}</span>
-                  <ChevronRight className="w-3 h-3 ml-auto flex-shrink-0 opacity-60" />
-                </button>
-              ))}
-            </div>
+
+                  {selectedDocId && docContentLoading && (
+                    <div className="flex items-center justify-center h-32 gap-2 text-slate-400 text-xs">
+                      <Loader2 className="w-4 h-4 animate-spin text-teal-500" />
+                      Loading document…
+                    </div>
+                  )}
+
+                  {selectedDocId && !docContentLoading && docContent && !docContent.loaded && (
+                    <div className="flex items-center gap-2 text-slate-500 text-xs p-2">
+                      <AlertCircle className="w-4 h-4 text-slate-400" />
+                      Document not loaded — add the corresponding <code className="font-mono bg-slate-100 px-1 rounded">{selectedDocId}_*.docx</code> file to <code className="font-mono bg-slate-100 px-1 rounded">backend/app/data</code> and restart.
+                    </div>
+                  )}
+
+                  {selectedDocId && !docContentLoading && docContent?.loaded && (
+                    <div className="space-y-4">
+                      <p className={clsx('text-xs font-bold', DOC_REGISTRY.find(d => d.id === selectedDocId)?.color)}>
+                        {docContent.doc_title}
+                      </p>
+                      {docContent.sections.map((sec, si) => (
+                        <div key={si}>
+                          <p className="text-[11px] font-semibold text-slate-700 uppercase tracking-wide mb-1.5">
+                            {sec.section}
+                          </p>
+                          <div className="space-y-1.5 pl-2">
+                            {sec.chunks.map((chunk, ci) => (
+                              <p key={ci} className="text-xs text-slate-600 leading-relaxed bg-white/30 rounded px-2 py-1.5">
+                                {chunk}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </GlassCard>
 
           {/* Chat history */}
@@ -308,7 +437,6 @@ export function DocumentAssistantPage() {
                           )}
                           <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{msg.text}</p>
 
-                          {/* Source tags */}
                           {msg.sources && msg.sources.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
                               {msg.sources.map((s, i) => (
@@ -336,7 +464,6 @@ export function DocumentAssistantPage() {
                   </motion.div>
                 ))}
 
-                {/* Typing effect */}
                 {isLoading && typingText && (
                   <motion.div key="typing" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-2.5">
                     <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center flex-shrink-0">
