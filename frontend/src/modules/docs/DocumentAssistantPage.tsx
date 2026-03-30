@@ -111,6 +111,7 @@ async function queryDocuments(query: string) {
     sources: SourceChunk[]
     processing_time_ms: number
     total_chunks_searched: number
+    ollama_error: string | null
   }
 }
 
@@ -222,6 +223,7 @@ export function DocumentAssistantPage() {
             timestamp: new Date().toISOString(),
             processing_time_ms: result.processing_time_ms,
             total_chunks_searched: result.total_chunks_searched,
+            ollama_error: result.ollama_error,
           })
           setLoading(false)
         }
@@ -436,6 +438,16 @@ export function DocumentAssistantPage() {
                             <p className="text-xs font-semibold text-teal-600 mb-1">Document Assistant</p>
                           )}
                           <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+
+                          {msg.ollama_error && (
+                            <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5">
+                              <AlertCircle className="w-3 h-3 text-amber-500 flex-shrink-0 mt-0.5" />
+                              <p className="text-xs text-amber-700 break-all">
+                                <span className="font-semibold">AI synthesis unavailable: </span>
+                                {msg.ollama_error}
+                              </p>
+                            </div>
+                          )}
 
                           {msg.sources && msg.sources.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">

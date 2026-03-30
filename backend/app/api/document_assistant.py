@@ -52,6 +52,7 @@ class DocQueryResponse(BaseModel):
     sources: list[SourceChunk]
     processing_time_ms: float
     total_chunks_searched: int
+    ollama_error: str | None = None  # populated when Ollama synthesis failed; None on success
 
 
 class DocStatusEntry(BaseModel):
@@ -92,8 +93,8 @@ async def doc_query(body: DocQueryRequest) -> DocQueryResponse:
     corpus = get_corpus(_BACKEND_DIR)
     top_chunks = retrieve(body.query, corpus, k=6)
 
-    # Try LLM synthesis first; fall back to raw excerpts if Ollama is unavailable
-    answer = await query_with_ollama(body.query, top_chunks)
+    # Try LLM synthesis first; fall back to concise excerpts if Ollama is unavailable
+    answer, ollama_error = await query_with_ollama(body.query, top_chunks)
     if answer is None:
         answer = format_response(body.query, top_chunks)
 
@@ -114,6 +115,7 @@ async def doc_query(body: DocQueryRequest) -> DocQueryResponse:
         ],
         processing_time_ms=elapsed_ms,
         total_chunks_searched=len(corpus),
+        ollama_error=ollama_error,
     )
 
 
