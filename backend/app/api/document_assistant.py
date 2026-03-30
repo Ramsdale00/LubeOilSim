@@ -66,6 +66,18 @@ class DocStatusResponse(BaseModel):
     total_chunks: int
 
 
+class DocSection(BaseModel):
+    section: str
+    chunks: list[str]
+
+
+class DocContentResponse(BaseModel):
+    doc_id: str
+    doc_title: str
+    loaded: bool
+    sections: list[DocSection]
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/doc-query", response_model=DocQueryResponse)
@@ -129,3 +141,27 @@ async def doc_status() -> DocStatusResponse:
         ))
 
     return DocStatusResponse(docs=docs, total_chunks=len(corpus))
+
+
+@router.get("/doc-content/{doc_id}", response_model=DocContentResponse)
+async def doc_content(doc_id: str) -> DocContentResponse:
+    """
+    Return the full chunked content of a single knowledge-base document,
+    grouped by section. Used by the frontend document reader.
+    """
+    doc_id = doc_id.upper()
+    doc_title = DOC_META.get(doc_id, doc_id)
+
+    corpus = get_corpus(_BACKEND_DIR)
+    doc_chunks = [c for c in corpus if c.doc_id == doc_id and not c.is_heading]
+
+    if not doc_chunks:
+        return DocContentResponse(doc_id=doc_id, doc_title=doc_title, loaded=False, sections=[])
+
+    # Group chunks by section preserving order
+    sections_map: dict[str, list[str]] = {}
+    for chunk in doc_chunks:
+        sections_map.setdefault(chunk.section, []).append(chunk.text)
+
+    sections = [DocSection(section=sec, chunks=texts) for sec, texts in sections_map.items()]
+    return DocContentResponse(doc_id=doc_id, doc_title=doc_title, loaded=True, sections=sections)
