@@ -16,6 +16,7 @@ export interface DocMessage {
   timestamp: string
   processing_time_ms?: number
   total_chunks_searched?: number
+  ollama_error?: string | null
 }
 
 interface DocAssistantState {

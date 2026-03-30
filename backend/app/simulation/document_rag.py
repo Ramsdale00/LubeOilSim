@@ -284,8 +284,8 @@ def retrieve(query: str, chunks: list[Chunk], k: int = 6) -> list[RetrievedChunk
 
 def format_response(query: str, top_chunks: list[RetrievedChunk]) -> str:
     """
-    Fallback formatter — returns raw excerpts with source attribution.
-    Used when Ollama is unavailable or OLLAMA_URL is not set.
+    Fallback formatter — returns a concise summary of the top-2 most relevant
+    excerpts with source attribution.  Used when Ollama is unavailable.
     """
     if not top_chunks:
         return (
@@ -293,35 +293,36 @@ def format_response(query: str, top_chunks: list[RetrievedChunk]) -> str:
             "Try rephrasing or using more specific terms from the documents."
         )
 
-    lines: list[str] = []
-    seen_docs: set[str] = set()
+    # Show only the 2 highest-scoring chunks to keep the response focused
+    display_chunks = top_chunks[:2]
+    lines: list[str] = ["(AI synthesis unavailable — showing best matching excerpts)\n"]
 
-    for chunk in top_chunks:
+    for chunk in display_chunks:
         doc_label = f"[{chunk.doc_id}] {chunk.doc_title}"
         section_label = chunk.section if chunk.section and chunk.section != "General" else ""
+        # Truncate long excerpts for readability
+        excerpt = chunk.excerpt if len(chunk.excerpt) <= 200 else chunk.excerpt[:197] + "..."
 
-        if doc_label not in seen_docs:
-            seen_docs.add(doc_label)
-            lines.append(f"From {doc_label}:")
-        else:
-            lines.append(f"  Also from {doc_label}:")
-
-        if section_label:
-            lines.append(f"  Section: {section_label}")
-        lines.append(f"  {chunk.excerpt}")
+        lines.append(f"Source: {doc_label}" + (f" › {section_label}" if section_label else ""))
+        lines.append(f"  {excerpt}")
         lines.append("")
 
     return "\n".join(lines).strip()
 
 
-async def query_with_ollama(query: str, top_chunks: list[RetrievedChunk]) -> Optional[str]:
+async def query_with_ollama(query: str, top_chunks: list[RetrievedChunk]) -> tuple[Optional[str], Optional[str]]:
     """
     Call Ollama to synthesize a natural language answer from retrieved chunks.
-    Returns None if OLLAMA_URL is not configured or if the call fails —
-    the caller should fall back to format_response() in that case.
+
+    Returns a (answer, error) tuple:
+    - (answer_text, None)  on success
+    - (None, error_message) if OLLAMA_URL is not set, the call fails, or the
+      response cannot be parsed — the caller should fall back to format_response().
     """
-    if not _OLLAMA_URL or not top_chunks:
-        return None
+    if not _OLLAMA_URL:
+        return None, "OLLAMA_URL is not configured"
+    if not top_chunks:
+        return None, "No relevant chunks found"
 
     context_parts = []
     for c in top_chunks:
@@ -351,11 +352,31 @@ async def query_with_ollama(query: str, top_chunks: list[RetrievedChunk]) -> Opt
             )
             r.raise_for_status()
             data = r.json()
-            # /chat returns {"message": {"role": "assistant", "content": "..."}}
+
+            # Try multiple response shapes in priority order:
+            # 1. Ollama /api/chat  → {"message": {"content": "..."}}
             text = (data.get("message") or {}).get("content", "").strip()
-            return text or None
-    except Exception:
-        return None  # silent fallback to raw excerpts
+
+            # 2. OpenAI-compatible → {"choices": [{"message": {"content": "..."}}]}
+            if not text:
+                choices = data.get("choices") or []
+                if choices:
+                    text = ((choices[0].get("message") or {}).get("content", "") or "").strip()
+
+            # 3. Ollama /api/generate → {"response": "..."}
+            if not text:
+                text = (data.get("response") or "").strip()
+
+            if text:
+                return text, None
+            return None, f"Ollama returned an empty response (model={_OLLAMA_MODEL}, keys={list(data.keys())})"
+
+    except httpx.HTTPStatusError as exc:
+        return None, f"Ollama HTTP {exc.response.status_code}: {exc.response.text[:200]}"
+    except httpx.RequestError as exc:
+        return None, f"Ollama connection error: {type(exc).__name__}: {exc}"
+    except Exception as exc:
+        return None, f"Ollama unexpected error: {type(exc).__name__}: {exc}"
 
 
 # ── Singleton corpus ──────────────────────────────────────────────────────────
