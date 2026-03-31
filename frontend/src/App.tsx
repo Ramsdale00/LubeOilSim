@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { DashboardPage } from '@/modules/dashboard/DashboardPage'
@@ -8,8 +9,19 @@ import { QualityPage } from '@/modules/quality/QualityPage'
 import { SupplyPage } from '@/modules/supply/SupplyPage'
 import { AIPage } from '@/modules/ai/AIPage'
 import { DocumentAssistantPage } from '@/modules/docs/DocumentAssistantPage'
+import LoginPage from '@/components/auth/LoginPage'
+
+interface AuthUser {
+  email: string
+}
 
 export default function App() {
+  const [user, setUser] = useState<AuthUser | null>(null)
+
+  if (!user) {
+    return <LoginPage onLogin={setUser} />
+  }
+
   return (
     <BrowserRouter>
       <Routes>

@@ -9,7 +9,6 @@ import {
   CheckCircle,
   TruckIcon,
   Bot,
-  BookOpen,
   ChevronLeft,
   ChevronRight,
   Zap,
@@ -24,7 +23,6 @@ const navItems = [
   { path: '/quality', icon: CheckCircle, label: 'Quality AI Engine', color: 'text-amber-500' },
   { path: '/supply', icon: TruckIcon, label: 'Procurement Hub', color: 'text-orange-500' },
   { path: '/ai', icon: Bot, label: 'AI Control Panel', color: 'text-pink-500' },
-  { path: '/docs', icon: BookOpen, label: 'Doc Assistant', color: 'text-teal-500' },
 ]
 
 export function Sidebar() {
