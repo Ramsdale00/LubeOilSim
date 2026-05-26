@@ -1,0 +1,7 @@
+# Ignore the original working file
+karya-vaani.html
+
+# Common OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
