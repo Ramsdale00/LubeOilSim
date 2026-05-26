@@ -1,6 +1,9 @@
 # Ignore the original working file
 karya-vaani.html
 
+# Environment files
+.env
+
 # Common OS/editor files
 .DS_Store
 Thumbs.db
