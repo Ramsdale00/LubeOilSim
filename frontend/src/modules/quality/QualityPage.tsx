@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
-import { CheckCircle2, XCircle, Clock, TrendingUp, AlertTriangle, Lightbulb } from 'lucide-react'
+import { CheckCircle2, XCircle, Clock, TrendingUp, AlertTriangle, Lightbulb, Award } from 'lucide-react'
 import { clsx } from 'clsx'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { RiskMeter } from '@/components/ui/RiskMeter'
 import { RealtimeLineChart } from '@/components/charts/RealtimeLineChart'
 import { useQualityStore, type QualityRecommendation, type ComparisonRow } from '@/store/qualityStore'
 import { useSimulationStore } from '@/store/simulationStore'
+import { useSavingsStore, SEED_LUBE_PROFILES, formatUSD } from '@/store/savingsStore'
 import type { QualityPrediction } from '@/types'
 
 // ── Dummy data ────────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
 export function QualityPage() {
   const { predictions, currentRisk, recommendations, comparisonRows, appendPrediction, setRisk, setRecommendations, applyRecommendation, setComparisonRows } = useQualityStore()
   const { isRunning, timeAcceleration } = useSimulationStore()
+  const { portfolioScenarios, batchSavings } = useSavingsStore()
 
   // Init
   useEffect(() => {
@@ -166,6 +168,46 @@ export function QualityPage() {
           <RealtimeLineChart data={tbnData} color="#10B981" label="TBN (mg KOH/g)" specMin={6.0} specMax={7.0} unit="" height={160} />
         </GlassCard>
       </div>
+
+      {/* RFT Performance Panel */}
+      <GlassCard className="p-4 border-l-4 border-green-400">
+        <div className="flex items-center gap-2 mb-3">
+          <Award className="w-4 h-4 text-green-600" />
+          <p className="text-sm font-semibold text-slate-700">RFT Performance — Right-First-Time</p>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">OmniBlend Discover</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {SEED_LUBE_PROFILES.slice(0, 4).map(p => {
+            const batches = batchSavings.filter(r => r.lubeId === p.lubeId)
+            const inSpecCount = batches.filter(r => r.inSpec).length
+            const rftActual = batches.length > 0 ? (inSpecCount / batches.length) * 100 : p.currentRftPct
+            const rftGap = Math.max(0, (0.99 - p.currentRftPct / 100) / (0.99 - 0.90)) * 100
+            const rftLift = portfolioScenarios ? portfolioScenarios.expected.rft : 0
+            return (
+              <div key={p.lubeId} className="bg-white/30 rounded-xl p-3">
+                <div className="text-xs text-slate-500 font-medium mb-1">{p.gradeCode}</div>
+                <div className={clsx('text-xl font-bold', p.currentRftPct >= 97 ? 'text-green-600' : p.currentRftPct >= 94 ? 'text-amber-600' : 'text-red-600')}>
+                  {p.currentRftPct.toFixed(1)}%
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-white/30 mt-1.5 mb-1">
+                  <div className="h-full rounded-full bg-green-400 transition-all duration-500"
+                    style={{ width: `${p.currentRftPct}%` }} />
+                </div>
+                <div className="text-xs text-slate-400">Gap to 99%: {rftGap.toFixed(0)}%</div>
+              </div>
+            )
+          })}
+        </div>
+        {portfolioScenarios && (
+          <div className="mt-3 flex items-center gap-4 text-xs text-slate-500 bg-green-50/40 rounded-lg p-2">
+            <span>💰 Expected RFT lift: <strong className="text-green-700">{formatUSD(portfolioScenarios.expected.rft)}/yr</strong></span>
+            <span>|</span>
+            <span>In-spec batches (30d): <strong>{batchSavings.filter(r => r.inSpec).length}/{batchSavings.length}</strong></span>
+            <span>|</span>
+            <span>Reference: $3.15/MT · 90→99% target</span>
+          </div>
+        )}
+      </GlassCard>
 
       {/* Recommendations + Comparison */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

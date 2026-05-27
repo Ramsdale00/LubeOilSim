@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { FlaskConical, Sparkles, Save, RotateCcw, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react'
+import { FlaskConical, Sparkles, Save, RotateCcw, TrendingUp, AlertCircle, CheckCircle, DollarSign, ExternalLink } from 'lucide-react'
 import { clsx } from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { useRecipeStore } from '@/store/recipeStore'
+import { useSavingsStore, SEED_LUBE_PROFILES, calculateBatchSavings, solveRebalance, formatUSD } from '@/store/savingsStore'
+import { useNavigate } from 'react-router-dom'
 import type { Recipe, RecipeIngredients } from '@/types'
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'
 
@@ -76,9 +78,21 @@ const INGREDIENT_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981'
 
 export function RecipePage() {
   const { recipes, selectedRecipe, draftRecipe, prediction, isPredicting, optimizationMode, setRecipes, selectRecipe, updateDraftIngredient, setDraftRecipe, setPrediction, setIsPredicting, setOptimizationMode, addRecipe } = useRecipeStore()
+  const { portfolioScenarios } = useSavingsStore()
+  const navigate = useNavigate()
   const [aiNote, setAiNote] = useState<string | null>(null)
   const [showAINote, setShowAINote] = useState(false)
   const total = sum(draftRecipe)
+
+  // Find matching lube profile for savings preview
+  const matchedProfile = SEED_LUBE_PROFILES.find(p =>
+    selectedRecipe?.name?.toLowerCase().includes(p.gradeCode.toLowerCase()) ||
+    p.lubeName.toLowerCase().includes(selectedRecipe?.name?.split(' ')[0]?.toLowerCase() ?? '')
+  ) ?? SEED_LUBE_PROFILES[0]
+
+  const previewCoa = {}  // default std values → shows baseline savings potential
+  const previewRB = solveRebalance(matchedProfile, previewCoa)
+  const previewSavings = calculateBatchSavings(matchedProfile, previewCoa, matchedProfile.batchKL * matchedProfile.density, previewRB)
 
   // Init
   useEffect(() => {
@@ -354,6 +368,38 @@ export function RecipePage() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* COA Impact Preview */}
+      <GlassCard className="p-4 border-l-4 border-emerald-400">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-emerald-600" />
+            <p className="text-sm font-semibold text-slate-700">COA Savings Impact — {matchedProfile.lubeName}</p>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Discover Engine</span>
+          </div>
+          <button onClick={() => navigate('/savings')}
+            className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium">
+            Open COA Calculator <ExternalLink className="w-3 h-3" />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'Est. Batch Saving', value: formatUSD(previewSavings.totalSaving), color: 'text-emerald-600', sub: `per ${(matchedProfile.batchKL * matchedProfile.density).toFixed(1)} MT batch` },
+            { label: 'Annual RFT Lift', value: formatUSD(portfolioScenarios?.expected.rft ?? previewSavings.rftLifted * matchedProfile.batchesPerYear), color: 'text-green-600', sub: `RFT gap: ${(previewSavings.rftGap * 100).toFixed(0)}%` },
+            { label: 'Material Avoidance', value: `$${previewSavings.materialAvoidedPerMT.toFixed(2)}/MT`, color: 'text-blue-600', sub: `${matchedProfile.topupPct}% top-up at $${matchedProfile.additiveCostMT - matchedProfile.baseOilCostMT}/MT diff` },
+            { label: 'Current RFT', value: `${matchedProfile.currentRftPct}%`, color: (matchedProfile.currentRftPct >= 97 ? 'text-green-600' : matchedProfile.currentRftPct >= 94 ? 'text-amber-600' : 'text-red-600'), sub: 'target: 99%' },
+          ].map(({ label, value, color, sub }) => (
+            <div key={label} className="bg-white/30 rounded-xl p-3">
+              <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">{label}</div>
+              <div className={`font-bold text-lg ${color}`}>{value}</div>
+              <div className="text-xs text-slate-400">{sub}</div>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-slate-400 mt-2">
+          ↗ Enter actual COA values in the COA Calculator to capture real batch savings with full derivation trace.
+        </p>
+      </GlassCard>
     </div>
   )
 }

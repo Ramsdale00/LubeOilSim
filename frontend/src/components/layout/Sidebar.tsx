@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
+  TrendingUp,
 } from 'lucide-react'
 import { useSimulationStore } from '@/store/simulationStore'
 
@@ -23,6 +24,7 @@ const navItems = [
   { path: '/quality', icon: CheckCircle, label: 'Quality AI Engine', color: 'text-amber-500' },
   { path: '/supply', icon: TruckIcon, label: 'Procurement Hub', color: 'text-orange-500' },
   { path: '/ai', icon: Bot, label: 'AI Control Panel', color: 'text-pink-500' },
+  { path: '/savings', icon: TrendingUp, label: 'Savings Impact', color: 'text-emerald-500' },
 ]
 
 export function Sidebar() {

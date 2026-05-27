@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { TruckIcon, Sparkles, CheckCircle2, Star, Clock, IndianRupee, Package, TrendingDown, ShieldCheck } from 'lucide-react'
+import { TruckIcon, Sparkles, CheckCircle2, Star, Clock, IndianRupee, Package, TrendingDown, ShieldCheck, TrendingUp, Zap } from 'lucide-react'
 import { clsx } from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { useSupplyStore } from '@/store/supplyStore'
+import { useSavingsStore, SEED_LUBE_PROFILES, formatUSD } from '@/store/savingsStore'
 import type { Brand, QualityGrade } from '@/types'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 
@@ -220,6 +221,7 @@ export function SupplyPage() {
     brands, selectedProducts, optimizationResult, isOptimizing,
     setBrands, toggleProductSelection, setOptimizationResult, setIsOptimizing,
   } = useSupplyStore()
+  const { portfolioScenarios } = useSavingsStore()
 
   const [materialFilter, setMaterialFilter] = useState<string>('all')
 
@@ -332,6 +334,41 @@ export function SupplyPage() {
               ))}
             </div>
           </GlassCard>
+
+          {/* Material Avoidance Impact */}
+          {portfolioScenarios && (
+            <GlassCard className="p-4 border-l-4 border-emerald-400">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp className="w-4 h-4 text-emerald-600" />
+                <p className="text-sm font-semibold text-slate-700">Material Avoidance Impact</p>
+              </div>
+              <div className="space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-500">Annual material savings</span>
+                  <span className="text-sm font-bold text-emerald-600">{formatUSD(portfolioScenarios.expected.material)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-500">Elemental potency capture</span>
+                  <span className="text-sm font-bold text-amber-600">{formatUSD(portfolioScenarios.expected.elemental)}</span>
+                </div>
+                <div className="h-px bg-white/30" />
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-500">Additive vs base oil diff</span>
+                  <span className="text-xs font-semibold text-slate-600">$2,500 − $850 = $1,650/MT</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-500">Top-up avoidance (0.5%)</span>
+                  <span className="text-xs font-semibold text-slate-600">$8.25/MT saved</span>
+                </div>
+                <div className="bg-emerald-50/60 rounded-lg p-2 mt-1">
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-700">
+                    <Zap className="w-3 h-3" />
+                    <span>Rebalancing reduces additive top-up need</span>
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+          )}
 
           {/* Price trend chart */}
           <GlassCard className="p-4">

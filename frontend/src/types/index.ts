@@ -197,6 +197,104 @@ export interface WSMessage {
   timestamp: string
 }
 
+// ── Savings / OmniBlend Discover types ───────────────────────────────────────
+
+export type ComponentRole = 'swing_heavy' | 'swing_light' | 'additive' | 'vm' | 'fixed'
+export type SavingsScenario = 'conservative' | 'expected' | 'optimistic'
+
+export interface ComponentSpec {
+  name: string
+  role: ComponentRole
+  massPct: number
+  stdKV?: number       // cSt @ 100°C
+  stdCa?: number       // % elemental
+  stdZn?: number
+  stdP?: number
+}
+
+export interface LubeProfile {
+  lubeId: string
+  lubeName: string
+  gradeCode: string    // e.g. '15W-40', 'ISO 46'
+  targetKV: number     // cSt @ 100°C
+  specWindow: number   // ±cSt tolerance
+  batchKL: number      // kiloliters per batch
+  density: number      // g/cm³
+  batchesPerYear: number
+  additiveCostMT: number   // $/MT
+  baseOilCostMT: number    // $/MT
+  topupPct: number         // % correction dose
+  currentRftPct: number    // 0–100
+  hourlyCapacityCost: number
+  components: ComponentSpec[]
+}
+
+export interface COAInputs {
+  swingHeavyActualKV?: number
+  swingLightActualKV?: number
+  additiveActualKV?: number
+  additiveActualCa?: number  // %
+  additiveActualZn?: number
+  additiveActualP?: number
+}
+
+export interface RebalanceResult {
+  applied: boolean
+  shiftDelta: number    // percentage-point shift on swing pair
+  predictedKVBefore: number
+  achievedKV: number
+  inSpec: boolean
+  message: string
+}
+
+export interface SavingsDerivation {
+  additiveCostDiff: number
+  topupRate: number
+  materialAvoidedPerMT: number
+  materialAvoided: number
+  avgElementalOverage: number
+  reducibleFrac: number
+  elementalSaving: number
+  rftGap: number
+  rftLiftPerMT: number
+  rftLifted: number
+  totalSaving: number
+  steps: string[]       // human-readable derivation trace
+}
+
+export interface BatchSavingsRecord {
+  id: string
+  batchId: string
+  lubeId: string
+  lubeName: string
+  batchMT: number
+  batchDate: string
+  coaInputs: COAInputs
+  rebalance: RebalanceResult
+  savings: SavingsDerivation
+  inSpec: boolean
+  committedAt: string
+}
+
+export interface ScenarioValues {
+  material: number
+  elemental: number
+  rft: number
+  total: number
+  capacityHours: number
+  savingsAsMaterialPct: number
+}
+
+export interface PortfolioScenarios {
+  conservative: ScenarioValues
+  expected: ScenarioValues
+  optimistic: ScenarioValues
+  capturedLast30d: ScenarioValues
+  annualMT: number
+  lubeCount: number
+  batchCount: number
+}
+
 // AI types
 export interface AIResponse {
   id: string

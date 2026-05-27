@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react'
 import {
   Activity, Zap, BarChart3, Cpu, AlertTriangle,
-  CheckCircle2, Info, XCircle, TrendingUp, Clock
+  CheckCircle2, Info, XCircle, TrendingUp, Clock, DollarSign, Award, Target
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { KPITile } from '@/components/ui/KPITile'
 import { useDashboardStore } from '@/store/dashboardStore'
 import { useSimulationStore } from '@/store/simulationStore'
+import { useSavingsStore, formatUSD } from '@/store/savingsStore'
 import type { EventLog, KPISnapshot, TimelineEntry } from '@/types'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
@@ -33,6 +34,7 @@ const INITIAL_EVENTS: EventLog[] = [
   { id: 'e3', timestamp: new Date(Date.now() - 420000).toISOString(), type: 'maintenance_due', severity: 'info', title: 'Pump P-03 Maintenance Due', message: 'Scheduled maintenance overdue by 12 hours. Plan window: tonight', source: 'Predictive Maint.', acknowledged: true },
   { id: 'e4', timestamp: new Date(Date.now() - 900000).toISOString(), type: 'material_shortage', severity: 'warning', title: 'Low Stock: Antioxidant AO-7', message: 'Tank T-05 at 18% capacity. Reorder recommended.', source: 'Tank Monitor', acknowledged: false },
   { id: 'e5', timestamp: new Date(Date.now() - 1800000).toISOString(), type: 'batch_complete', severity: 'success', title: 'Batch B040 Completed', message: 'Hydraulic Oil ISO 46 — 3,100 L produced. Cost: $2,186', source: 'Blender-2', acknowledged: true },
+  { id: 'e6', timestamp: new Date(Date.now() - 120000).toISOString(), type: 'quality_deviation', severity: 'success', title: '💰 Discover Savings Captured', message: 'SAE 15W-40 HD (B-2026-031): $312 savings — rebalance applied, RFT lift + material avoidance', source: 'OmniBlend Discover', acknowledged: false },
 ]
 
 const TIMELINE_DATA: TimelineEntry[] = [
@@ -85,6 +87,7 @@ function timeAgo(iso: string) {
 export function DashboardPage() {
   const { kpis, events, setKPIs, setEvents, acknowledgeEvent } = useDashboardStore()
   const { isRunning, timeAcceleration, tickCount } = useSimulationStore()
+  const { portfolioScenarios, batchSavings } = useSavingsStore()
   const sparkRef = useRef<number[][]>([[], [], [], []])
 
   // Initialise
@@ -172,6 +175,42 @@ export function DashboardPage() {
           decimals={1}
         />
       </div>
+
+      {/* OmniBlend Discover Savings KPIs */}
+      {portfolioScenarios && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <GlassCard className="p-4 border-l-4 border-emerald-400 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-100/60 flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Discover Savings (Annual)</p>
+              <p className="text-2xl font-bold text-emerald-600 truncate">{formatUSD(portfolioScenarios.expected.total)}</p>
+              <p className="text-xs text-slate-400">Expected · {portfolioScenarios.expected.savingsAsMaterialPct.toFixed(1)}% of material cost</p>
+            </div>
+          </GlassCard>
+          <GlassCard className="p-4 border-l-4 border-blue-400 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-blue-100/60 flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Cost Avoidance (30d)</p>
+              <p className="text-2xl font-bold text-blue-600 truncate">{formatUSD(portfolioScenarios.capturedLast30d.material + portfolioScenarios.capturedLast30d.elemental)}</p>
+              <p className="text-xs text-slate-400">Material + elemental streams</p>
+            </div>
+          </GlassCard>
+          <GlassCard className="p-4 border-l-4 border-amber-400 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-amber-100/60 flex items-center justify-center flex-shrink-0">
+              <Award className="w-5 h-5 text-amber-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">RFT Lift (30d)</p>
+              <p className="text-2xl font-bold text-amber-600 truncate">{formatUSD(portfolioScenarios.capturedLast30d.rft)}</p>
+              <p className="text-xs text-slate-400">{portfolioScenarios.batchCount} batches · {portfolioScenarios.lubeCount} grades</p>
+            </div>
+          </GlassCard>
+        </div>
+      )}
 
       {/* Secondary KPIs */}
       <div className="grid grid-cols-3 gap-3">

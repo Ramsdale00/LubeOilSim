@@ -9,6 +9,7 @@ import { QualityPage } from '@/modules/quality/QualityPage'
 import { SupplyPage } from '@/modules/supply/SupplyPage'
 import { AIPage } from '@/modules/ai/AIPage'
 import { DocumentAssistantPage } from '@/modules/docs/DocumentAssistantPage'
+import { SavingsPage } from '@/modules/savings/SavingsPage'
 import LoginPage from '@/components/auth/LoginPage'
 
 interface AuthUser {
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/supply" element={<SupplyPage />} />
           <Route path="/ai" element={<AIPage />} />
           <Route path="/docs" element={<DocumentAssistantPage />} />
+          <Route path="/savings" element={<SavingsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

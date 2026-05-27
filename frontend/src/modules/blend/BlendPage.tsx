@@ -8,6 +8,7 @@ import { PipelineCanvas } from '@/components/pipeline/PipelineCanvas'
 import { useBlendStore } from '@/store/blendStore'
 import { useTankStore } from '@/store/tankStore'
 import { useSimulationStore } from '@/store/simulationStore'
+import { useSavingsStore, formatUSD } from '@/store/savingsStore'
 import type { BlendBatch, BlendStage, Tank, MaterialType } from '@/types'
 
 // ── Dummy data ───────────────────────────────────────────────────────────────
@@ -95,6 +96,7 @@ export function BlendPage() {
   const { batches, activeBatch, setBatches, updateBatch, setActiveBatch, setPipelineActive } = useBlendStore()
   const { setTanks } = useTankStore()
   const { isRunning, timeAcceleration } = useSimulationStore()
+  const { batchSavings } = useSavingsStore()
   const [selectedId, setSelectedId] = useState<string>('B043')
 
   // Init
@@ -202,6 +204,18 @@ export function BlendPage() {
                   <span className="text-xs text-amber-600">{batch.alerts[0]}</span>
                 </div>
               )}
+              {batch.stage === 'completed' && (() => {
+                const saving = batchSavings.find(s => s.batchId === batch.id)
+                const amount = saving ? saving.savings.totalSaving
+                  : [8.76, 10.58, 6.86, 13.04].reduce((sum, mt, i) => i === 0 ? mt * 27.3 : sum, 0) // simulated fallback
+                const savingAmt = saving ? saving.savings.totalSaving : Math.round(batch.volume_liters * 0.008 + 85)
+                return (
+                  <div className="mt-2 flex items-center gap-1 bg-emerald-50/60 rounded-lg px-2 py-1">
+                    <span className="text-xs">💰</span>
+                    <span className="text-xs font-semibold text-emerald-700">{formatUSD(savingAmt)} Discover savings</span>
+                  </div>
+                )
+              })()}
             </GlassCard>
           ))}
         </div>
