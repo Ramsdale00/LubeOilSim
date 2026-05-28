@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { clsx } from 'clsx'
 import { format } from 'date-fns'
-import { Zap, AlertTriangle, ChevronDown, Wifi, WifiOff } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Wifi, WifiOff, Droplets } from 'lucide-react'
 import { useSimulationStore } from '@/store/simulationStore'
 import { useSimulationSocket } from '@/hooks/useSimulationSocket'
 import { post, put } from '@/hooks/useApi'
@@ -29,7 +29,7 @@ export function TopBar() {
     try {
       await put('/simulation/time-acceleration', { acceleration: speed })
     } catch {
-      // API may not be available - state is already updated locally
+      // API may not be available
     }
   }
 
@@ -45,28 +45,37 @@ export function TopBar() {
   const isConnected = wsStatus === 'connected'
 
   return (
-    <header className="h-14 flex items-center justify-between px-6 backdrop-blur-xl bg-white/30 border-b border-white/30 relative z-10">
-      {/* Left: Logo */}
+    <header
+      className="h-14 flex items-center justify-between px-6 relative z-10"
+      style={{ background: 'linear-gradient(90deg, #1F3864 0%, #2E75B6 100%)', boxShadow: '0 2px 8px rgba(0,0,0,0.18)' }}
+    >
+      {/* Left: Brand */}
       <div className="flex items-center gap-3">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-          <Zap className="w-4 h-4 text-white" />
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ background: 'rgba(255,255,255,0.18)' }}
+        >
+          <Droplets className="w-4 h-4 text-white" />
         </div>
         <div>
-          <span className="font-bold text-slate-800 text-sm">OmniBlend Control</span>
-          <span className="text-slate-400 text-xs ml-2">Digital Twin Simulator</span>
+          <span className="font-semibold text-white text-sm tracking-wide">OmniBlend</span>
+          <span className="text-white/50 text-xs ml-2">Digital Twin Simulator</span>
         </div>
       </div>
 
-      {/* Center: Sim Clock */}
+      {/* Center: Sim Clock + Speed */}
       <div className="flex items-center gap-4">
-        <div className="glass-card px-4 py-1.5 flex items-center gap-3">
-          <div className="text-xs text-slate-500 font-medium">SIM TIME</div>
-          <div className="text-sm font-mono font-bold text-blue-600">
+        <div
+          className="flex items-center gap-3 px-4 py-1.5 rounded-lg"
+          style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.20)' }}
+        >
+          <span className="text-white/60 text-xs font-medium tracking-wider">SIM</span>
+          <span className="text-white text-sm font-mono font-bold">
             {format(simulatedTime, 'HH:mm:ss')}
-          </div>
-          <div className="text-xs text-slate-400">
+          </span>
+          <span className="text-white/50 text-xs">
             {format(simulatedTime, 'dd MMM yyyy')}
-          </div>
+          </span>
         </div>
 
         {/* Time acceleration */}
@@ -76,11 +85,12 @@ export function TopBar() {
               key={speed}
               onClick={() => handleAcceleration(speed)}
               className={clsx(
-                'w-9 h-7 rounded-lg text-xs font-bold transition-all duration-200',
+                'w-9 h-7 rounded text-xs font-bold transition-all duration-150',
                 timeAcceleration === speed
-                  ? 'bg-blue-500 text-white shadow-md glow-blue'
-                  : 'bg-white/40 text-slate-600 hover:bg-white/60 border border-white/30'
+                  ? 'bg-white text-[#1F3864]'
+                  : 'text-white/70 hover:text-white hover:bg-white/15'
               )}
+              style={timeAcceleration !== speed ? { border: '1px solid rgba(255,255,255,0.25)' } : {}}
             >
               {speed}x
             </button>
@@ -93,11 +103,8 @@ export function TopBar() {
         <div className="relative">
           <button
             onClick={() => setShowEventMenu(!showEventMenu)}
-            className={clsx(
-              'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium',
-              'backdrop-blur-sm bg-amber-100/60 border border-amber-200 text-amber-700',
-              'hover:bg-amber-200/60 transition-all duration-200'
-            )}
+            className="flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium text-white/90 transition-all duration-150 hover:bg-white/15"
+            style={{ border: '1px solid rgba(255,255,255,0.30)' }}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
             Inject Event
@@ -105,15 +112,21 @@ export function TopBar() {
           </button>
 
           {showEventMenu && (
-            <div className="absolute right-0 top-full mt-2 glass-card py-2 min-w-[180px] z-50">
+            <div
+              className="absolute right-0 top-full mt-2 py-1 min-w-[180px] z-50 rounded-lg"
+              style={{ background: '#fff', border: '1px solid #DCE0E7', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+            >
               {injectableEvents.map((event) => (
                 <button
                   key={event.id}
                   onClick={() => handleInjectEvent(event.id)}
-                  className="w-full text-left px-4 py-2 text-xs hover:bg-white/30 transition-colors flex items-center gap-2"
+                  className="w-full text-left px-4 py-2 text-xs transition-colors flex items-center gap-2"
+                  style={{ color: '#5F5E5A' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#F4F6FA')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
                   <span>{event.icon}</span>
-                  <span className="text-slate-700 font-medium">{event.label}</span>
+                  <span className="font-medium" style={{ color: '#1a1a1a' }}>{event.label}</span>
                 </button>
               ))}
             </div>
@@ -121,12 +134,13 @@ export function TopBar() {
         </div>
 
         {/* WS Status */}
-        <div className={clsx(
-          'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium',
-          isConnected
-            ? 'bg-green-100/60 border border-green-200 text-green-700'
-            : 'bg-slate-100/60 border border-slate-200 text-slate-500'
-        )}>
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium"
+          style={isConnected
+            ? { background: 'rgba(29,158,117,0.20)', border: '1px solid rgba(29,158,117,0.35)', color: '#5DCAA5' }
+            : { background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.55)' }
+          }
+        >
           {isConnected
             ? <Wifi className="w-3.5 h-3.5" />
             : <WifiOff className="w-3.5 h-3.5" />

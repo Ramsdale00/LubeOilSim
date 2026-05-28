@@ -36,35 +36,38 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <div
       className="min-h-screen flex items-center justify-center p-4"
-      style={{ background: '#FAF7F2' }}
+      style={{ background: 'linear-gradient(135deg, #1F3864 0%, #2E75B6 60%, #5DCAA5 100%)' }}
     >
       <div
-        className="w-full max-w-sm rounded-2xl border p-8 shadow-sm"
-        style={{ background: '#FFFFFF', borderColor: '#DDD9D1' }}
+        className="w-full max-w-sm rounded-xl p-8"
+        style={{ background: '#ffffff', boxShadow: '0 12px 40px rgba(0,0,0,0.18)' }}
       >
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-            style={{ background: 'linear-gradient(135deg, #1E40AF 0%, #0EA5E9 100%)' }}
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+            style={{ background: '#1F3864' }}
           >
-            <Droplets size={26} className="text-white" />
+            <Droplets size={22} className="text-white" />
           </div>
-          <h1 className="text-xl font-bold" style={{ color: '#2A2825' }}>
+          <h1 className="text-lg font-semibold" style={{ color: '#1F3864' }}>
             OmniBlend
           </h1>
-          <p className="text-sm mt-1" style={{ color: '#9A9894' }}>
-            LOBP Blend Simulator
+          <p className="text-xs mt-0.5 italic" style={{ color: '#2E75B6', letterSpacing: '0.005em' }}>
+            Blend smarter. Save more. Every batch.
+          </p>
+          <p className="text-xs mt-1" style={{ color: '#888780' }}>
+            LOBP Digital Twin Simulator
           </p>
         </div>
 
-        {/* Loading status bar */}
+        {/* Loading bar */}
         {loading && (
-          <div className="mb-4 overflow-hidden rounded-full h-1" style={{ background: '#E8E4DC' }}>
+          <div className="mb-4 overflow-hidden rounded-full h-1" style={{ background: '#ECEFF4' }}>
             <div
-              className="h-full rounded-full animate-pulse"
+              className="h-full rounded-full"
               style={{
-                background: 'linear-gradient(90deg, #1E40AF, #0EA5E9)',
+                background: 'linear-gradient(90deg, #1F3864, #2E75B6)',
                 animation: 'slide 1.2s ease-in-out infinite',
                 width: '60%',
               }}
@@ -84,8 +87,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           {/* Email */}
           <div>
             <label
-              className="block text-xs font-medium mb-1.5"
-              style={{ color: '#5A5855' }}
+              className="block mb-1.5 uppercase tracking-wide"
+              style={{ fontSize: '11px', fontWeight: 500, color: '#5F5E5A', letterSpacing: '0.5px' }}
             >
               Email address
             </label>
@@ -97,19 +100,23 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               required
               autoComplete="email"
               disabled={loading}
-              className="w-full rounded-xl px-4 py-2.5 text-sm outline-none border transition-colors"
+              className="w-full outline-none transition-all"
               style={{
-                background: '#FAFAF8',
-                borderColor: '#DDD9D1',
-                color: '#2A2825',
+                height: '40px',
+                border: '1px solid #DCE0E7',
+                borderRadius: '8px',
+                padding: '0 12px',
+                fontSize: '14px',
+                background: '#ffffff',
+                color: '#1a1a1a',
                 opacity: loading ? 0.6 : 1,
               }}
               onFocus={e => {
-                e.currentTarget.style.borderColor = '#93AADE'
-                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(147,170,222,0.18)'
+                e.currentTarget.style.borderColor = '#2E75B6'
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(46,117,182,0.15)'
               }}
               onBlur={e => {
-                e.currentTarget.style.borderColor = '#DDD9D1'
+                e.currentTarget.style.borderColor = '#DCE0E7'
                 e.currentTarget.style.boxShadow = 'none'
               }}
             />
@@ -118,8 +125,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           {/* Password */}
           <div>
             <label
-              className="block text-xs font-medium mb-1.5"
-              style={{ color: '#5A5855' }}
+              className="block mb-1.5 uppercase tracking-wide"
+              style={{ fontSize: '11px', fontWeight: 500, color: '#5F5E5A', letterSpacing: '0.5px' }}
             >
               Password
             </label>
@@ -132,27 +139,31 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 required
                 autoComplete="current-password"
                 disabled={loading}
-                className="w-full rounded-xl px-4 py-2.5 pr-11 text-sm outline-none border transition-colors"
+                className="w-full outline-none transition-all"
                 style={{
-                  background: '#FAFAF8',
-                  borderColor: '#DDD9D1',
-                  color: '#2A2825',
+                  height: '40px',
+                  border: '1px solid #DCE0E7',
+                  borderRadius: '8px',
+                  padding: '0 40px 0 12px',
+                  fontSize: '14px',
+                  background: '#ffffff',
+                  color: '#1a1a1a',
                   opacity: loading ? 0.6 : 1,
                 }}
                 onFocus={e => {
-                  e.currentTarget.style.borderColor = '#93AADE'
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(147,170,222,0.18)'
+                  e.currentTarget.style.borderColor = '#2E75B6'
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(46,117,182,0.15)'
                 }}
                 onBlur={e => {
-                  e.currentTarget.style.borderColor = '#DDD9D1'
+                  e.currentTarget.style.borderColor = '#DCE0E7'
                   e.currentTarget.style.boxShadow = 'none'
                 }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5"
-                style={{ color: '#9A9894' }}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                style={{ color: '#888780' }}
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -162,28 +173,29 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
           {/* Error */}
           {error && (
-            <p
-              className="text-xs rounded-lg px-3 py-2 border"
-              style={{
-                color: '#B91C1C',
-                background: '#FFF5F5',
-                borderColor: '#FECACA',
-              }}
+            <div
+              className="text-xs rounded-lg px-3 py-2"
+              style={{ background: '#FCEBEB', color: '#791F1F', border: '1px solid #f5c2c2' }}
             >
               {error}
-            </p>
+            </div>
           )}
 
           {/* Submit */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
+            className="w-full flex items-center justify-center gap-2 text-white font-medium transition-colors"
             style={{
-              background: 'linear-gradient(135deg, #1E40AF 0%, #0EA5E9 100%)',
-              opacity: loading ? 0.75 : 1,
+              height: '40px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              background: loading ? '#2E75B6' : '#1F3864',
+              border: 'none',
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
+            onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#2E75B6' }}
+            onMouseLeave={e => { if (!loading) e.currentTarget.style.background = '#1F3864' }}
           >
             {loading ? (
               <>
@@ -199,7 +211,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           </button>
         </form>
 
-        <p className="text-xs text-center mt-6" style={{ color: '#C5C1B9' }}>
+        <p className="text-center mt-6" style={{ fontSize: '11px', color: '#B4B8C2' }}>
           Access restricted to authorised users only.
         </p>
       </div>
